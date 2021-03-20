@@ -5,9 +5,9 @@ import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.ExperimentalCoroutinesApi
-import ru.stech.QuietAnalizer
+import ru.stech.quiet.QuietAnalizer
 import ru.stech.g711.decompressFromG711
-import ru.stech.sip.BotClient
+import ru.stech.BotClient
 
 @ExperimentalCoroutinesApi
 class RtpChannelInboundHandler(val user: String,

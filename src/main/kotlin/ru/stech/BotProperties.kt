@@ -1,4 +1,4 @@
-package ru.stech.sip
+package ru.stech
 
 data class BotProperties(
     val serverHost: String,

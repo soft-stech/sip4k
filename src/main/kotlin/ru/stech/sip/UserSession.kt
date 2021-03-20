@@ -9,9 +9,12 @@ import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.nio.NioEventLoopGroup
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import ru.stech.BotClient
+import ru.stech.BotProperties
 import ru.stech.rtp.RtpSession
 import ru.stech.sdp.parseToSdpBody
 import ru.stech.sip.cache.SipSessionCache
@@ -26,6 +29,7 @@ import javax.sip.header.CSeqHeader
 import javax.sip.header.HeaderFactory
 import javax.sip.header.ViaHeader
 
+@ExperimentalCoroutinesApi
 class UserSession(private val to: String,
                   private val botProperties: BotProperties,
                   private val addressFactory: AddressFactory,
@@ -33,29 +37,31 @@ class UserSession(private val to: String,
                   private val sipClient: SipClient,
                   private val botClient: BotClient,
                   private val sessionCache: SipSessionCache,
-                  private val dispatcher: CoroutineDispatcher
+                  private val rtpNioEventLoopGroup: NioEventLoopGroup,
+                  private val botCoroutineDispatcher: CoroutineDispatcher
 ) {
     private val callId = UUID.randomUUID().toString()
-    val inviteResponseChannel = Channel<SIPResponse>(0)
-    val outputAudioChannel = Channel<ByteArray>(3000)
-    val localRtpPort = sessionCache.newRtpPort()
-    val rtpSession = RtpSession(
+    private val inviteResponseChannel = Channel<SIPResponse>(0)
+    private val outputAudioChannel = Channel<ByteArray>(3000)
+    private val localRtpPort = sessionCache.newRtpPort()
+    private val rtpSession = RtpSession(
         user = to,
         listenPort = localRtpPort,
         botClient = botClient,
-        eventLoopGroup = NioEventLoopGroup(3),
-        dispatcher = dispatcher,
+        rtpNioEventLoopGroup = rtpNioEventLoopGroup,
+        dispatcher = botCoroutineDispatcher,
         botProperties = botProperties
     )
+    //jobs in this session
+    private val sendRtpToAbonentJob = CoroutineScope(botCoroutineDispatcher).launch {
+        for (data in outputAudioChannel) {
+            rtpSession.sendRtpData(data)
+            delay(20)
+        }
+    }
 
     suspend fun startCall(): Boolean {
         rtpSession.start()
-        CoroutineScope(dispatcher).launch {
-            for (data in outputAudioChannel) {
-                rtpSession.sendRtpData(data)
-                delay(20)
-            }
-        }
         val fromTag = randomString(8)
         var inviteBranch = "z9hG4bK${UUID.randomUUID()}"
         val inviteSipRequestBuilder = SipRequestBuilder(
@@ -187,13 +193,28 @@ class UserSession(private val to: String,
         sipClient.send(ackSipRequestBuilder.toString().toByteArray())
     }
 
-    suspend fun byeEvent(request: SIPRequest) {
+    suspend fun inviteResponseEvent(request: SIPResponse) {
+        inviteResponseChannel.send(request)
+    }
+
+    suspend fun inviteRequestEvent(request: SIPRequest) {
         sipClient.send(request.createResponse(200).toString().toByteArray())
-        outputAudioChannel.close()
+    }
+
+    private var byeRequestIsAlreadyReceived = false
+    suspend fun byeRequestEvent(request: SIPRequest) {
+        sipClient.send(request.createResponse(200).toString().toByteArray())
+        botClient.endSession(to)
+        byeRequestIsAlreadyReceived = true
     }
 
     suspend fun stopCall() {
-
+        if (!byeRequestIsAlreadyReceived) {
+            //TODO send bye request
+        }
+        inviteResponseChannel.close()
+        outputAudioChannel.close()
+        rtpSession.stop()
     }
 
     suspend fun sendAudioData(data: ByteArray) {

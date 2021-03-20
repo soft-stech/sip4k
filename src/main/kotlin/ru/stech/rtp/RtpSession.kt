@@ -9,14 +9,14 @@ import io.netty.channel.socket.DatagramPacket
 import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.util.internal.SocketUtils
 import kotlinx.coroutines.CoroutineDispatcher
-import ru.stech.sip.BotClient
-import ru.stech.sip.BotProperties
+import ru.stech.BotClient
+import ru.stech.BotProperties
 import kotlin.random.Random
 
 class RtpSession(
     val user: String,
     val listenPort: Int,
-    private val eventLoopGroup: EventLoopGroup,
+    private val rtpNioEventLoopGroup: EventLoopGroup,
     private val dispatcher: CoroutineDispatcher,
     private val botProperties: BotProperties,
     private val botClient: BotClient
@@ -35,7 +35,7 @@ class RtpSession(
         val rtpClientBootstrap = Bootstrap()
         rtpClientBootstrap
             .channel(NioDatagramChannel::class.java)
-            .group(eventLoopGroup)
+            .group(rtpNioEventLoopGroup)
             .handler(object : ChannelInitializer<NioDatagramChannel>() {
                 @Throws(Exception::class)
                 override fun initChannel(ch: NioDatagramChannel) {
@@ -69,6 +69,6 @@ class RtpSession(
      * Stop listening responses from rtp-server
      */
     fun stop() {
-        future.channel().close()
+        future.channel().close().syncUninterruptibly()
     }
 }

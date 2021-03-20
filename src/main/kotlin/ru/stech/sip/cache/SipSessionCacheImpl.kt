@@ -15,8 +15,8 @@ class SipSessionCacheImpl: SipSessionCache {
         sessions[key] = session
     }
 
-    override fun remove(key: String) {
-        sessions.remove(key)
+    override fun remove(key: String): UserSession? {
+        return sessions.remove(key)
     }
 
     override fun newRtpPort(): Int {

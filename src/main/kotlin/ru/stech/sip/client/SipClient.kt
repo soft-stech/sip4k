@@ -9,7 +9,8 @@ import io.netty.channel.socket.DatagramPacket
 import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.util.internal.SocketUtils
 import kotlinx.coroutines.CoroutineDispatcher
-import ru.stech.sip.BotClient
+import ru.stech.BotClient
+import ru.stech.sip.cache.SipSessionCache
 import javax.sip.message.MessageFactory
 
 class SipClient(
@@ -19,7 +20,8 @@ class SipClient(
     private val dispatcher: CoroutineDispatcher,
     private var workerGroup: EventLoopGroup,
     private val messageFactory: MessageFactory,
-    private val botClient: BotClient
+    private val botClient: BotClient,
+    private val sessionCache: SipSessionCache
 ) {
     private var senderChannel: Channel? = null
 
@@ -32,7 +34,7 @@ class SipClient(
                 override fun initChannel(ch: NioDatagramChannel) {
                     val pipeline = ch.pipeline()
                     pipeline.addLast(SipClientHandler(
-                        sessionCache = botClient.sessionCache,
+                        sessionCache = sessionCache,
                         dispatcher = dispatcher,
                         messageFactory = messageFactory,
                         botClient = botClient

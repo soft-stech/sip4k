@@ -8,16 +8,19 @@ import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
-import ru.stech.sip.BotClient
+import ru.stech.BotClient
 import ru.stech.sip.cache.SipSessionCache
 import ru.stech.sip.cache.SipSessionCacheImpl
 import javax.sip.message.MessageFactory
 
+@ExperimentalCoroutinesApi
 class SipClientHandler(private val sessionCache: SipSessionCache = SipSessionCacheImpl(),
                        private val dispatcher: CoroutineDispatcher,
                        private val messageFactory: MessageFactory,
-                       private val botClient: BotClient): ChannelInboundHandlerAdapter() {
+                       private val botClient: BotClient
+): ChannelInboundHandlerAdapter() {
 
     @Throws(Exception::class)
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
@@ -42,14 +45,15 @@ class SipClientHandler(private val sessionCache: SipSessionCache = SipSessionCac
     private suspend fun processRequest(request: SIPRequest) {
         when (request.requestLine.method) {
             SIPRequest.OPTIONS -> {
-                botClient.optionsEvent(request)
+                botClient.optionsRequestEvent(request)
             }
             SIPRequest.BYE -> {
                 val session = sessionCache.get((request.fromHeader.address as AddressImpl).userAtHostPort)
-                session?.byeEvent(request)
+                session?.byeRequestEvent(request)
             }
             SIPRequest.INVITE ->{
-                botClient.sendInviteResponse(request);
+                val session = sessionCache.get((request.fromHeader.address as AddressImpl).userAtHostPort)
+                session?.inviteRequestEvent(request)
             }
             else -> throw IllegalArgumentException()
         }
@@ -58,11 +62,11 @@ class SipClientHandler(private val sessionCache: SipSessionCache = SipSessionCac
     private suspend fun processResponse(response: SIPResponse) {
         when (response.cSeqHeader.method) {
             SIPRequest.REGISTER -> {
-                botClient.registerResponseChannel.send(response)
+                botClient.registerResponseEvent(response)
             }
             SIPRequest.INVITE -> {
                 val session = sessionCache.get((response.toHeader.address as AddressImpl).userAtHostPort)
-                session?.inviteResponseChannel?.send(response)
+                session?.inviteResponseEvent(response)
             }
             else -> throw IllegalArgumentException()
         }

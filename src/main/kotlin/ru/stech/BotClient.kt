@@ -1,4 +1,4 @@
-package ru.stech.sip
+package ru.stech
 
 import gov.nist.javax.sip.address.GenericURI
 import gov.nist.javax.sip.header.RequestLine
@@ -7,15 +7,19 @@ import gov.nist.javax.sip.header.WWWAuthenticate
 import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.nio.NioEventLoopGroup
+import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
-import kotlinx.coroutines.newFixedThreadPoolContext
 import ru.stech.g711.compressToG711
+import ru.stech.sip.SipRequestBuilder
+import ru.stech.sip.UserSession
 import ru.stech.sip.cache.SipSessionCacheImpl
 import ru.stech.sip.client.SipClient
+import ru.stech.sip.exceptions.SipClientNotAvailableException
 import ru.stech.util.EXPIRES
 import ru.stech.util.MAX_FORWARDS
 import ru.stech.util.TRANSPORT
@@ -28,14 +32,18 @@ import javax.sip.SipFactory
 @ExperimentalCoroutinesApi
 class BotClient(
     val botProperties: BotProperties,
-    val nthreads: Int,
-    val cthreads: Int,
+    val sipNioThreads: Int = 1,
+    val rtpNioThreads: Int = 1,
+    val sipClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    val rtpClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
+    val botCoroutineDispatcher: CoroutineDispatcher = Dispatchers.Default,
     val streamEventListener: (user: String, data: ByteArray, endOfPhrase: Boolean) -> Unit,
 ) {
     private val REGISTER_DELAY = 20
     private var registered = false
-    private val eventLoopGroup = NioEventLoopGroup(nthreads)
-    private val dispatcher = newFixedThreadPoolContext(cthreads, "cd")
+    private val sipNioEventLoopGroup = NioEventLoopGroup(sipNioThreads)
+    private val rtpNioEventLoopGroup = NioEventLoopGroup(rtpNioThreads)
+
     private val sipFactory = SipFactory.getInstance()
     private val messageFactory = sipFactory.createMessageFactory()
     private val headerFactory = sipFactory.createHeaderFactory()
@@ -43,23 +51,24 @@ class BotClient(
 
     private lateinit var sipClient: SipClient
 
-    val sessionCache = SipSessionCacheImpl()
+    private val sessionCache = SipSessionCacheImpl()
     val registerResponseChannel = Channel<SIPResponse>(0)
-    private val botIsStarted = Channel<Boolean>(0)
 
+    private val botIsStarted = Channel<Boolean>(0)
     suspend fun startAwait(): Boolean {
         if (!botIsStarted.isClosedForSend) {
             sipClient = SipClient(
                 serverHost = botProperties.serverHost,
                 serverPort = botProperties.serverSipPort,
                 sipListenPort = botProperties.clientSipPort,
-                workerGroup = eventLoopGroup,
-                dispatcher = dispatcher,
+                workerGroup = sipNioEventLoopGroup,
+                dispatcher = sipClientCoroutineDispatcher,
                 messageFactory = messageFactory,
+                sessionCache = sessionCache,
                 botClient = this
             )
             sipClient.start()
-            CoroutineScope(dispatcher).launch {
+            CoroutineScope(botCoroutineDispatcher).launch {
                 startRegistrationByPeriod()
             }
             return botIsStarted.receive()
@@ -207,27 +216,36 @@ class BotClient(
         registered = false
     }
 
-    suspend fun optionsEvent(request: SIPRequest) {
+    suspend fun optionsRequestEvent(request: SIPRequest) {
         val response = request.createResponse(200);
         response.setHeader(headerFactory.createAllowHeader("INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE"))
         response.setHeader(headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"))
         sipClient.send(response.toString().toByteArray())
     }
 
-    suspend fun startSessionAwait(to: String): Boolean {
-        val botClient = this
+    suspend fun startSessionAwait(to: String): UserSession {
         val session = UserSession(
             to = to,
             botProperties = botProperties,
             addressFactory = addressFactory,
             headerFactory = headerFactory,
             sipClient = sipClient,
-            botClient = botClient,
+            botClient = this,
             sessionCache = sessionCache,
-            dispatcher = dispatcher
+            rtpNioEventLoopGroup = rtpNioEventLoopGroup,
+            botCoroutineDispatcher = botCoroutineDispatcher
         )
         sessionCache.put("${to}@${botProperties.serverHost}", session)
-        return session.startCall()
+        if (session.startCall()) {
+            return session
+        } else {
+            throw SipClientNotAvailableException("Abonent not available")
+        }
+    }
+
+    suspend fun endSession(to: String) {
+        val session = sessionCache.remove("${to}@${botProperties.serverHost}")
+        session?.stopCall()
     }
 
     suspend fun sendAudioData(user: String, data: ByteArray) {
@@ -236,7 +254,7 @@ class BotClient(
         session?.sendAudioData(compressData)
     }
 
-    fun sendInviteResponse(request: SIPRequest) {
-        sipClient.send(request.createResponse(200).toString().toByteArray())
+    suspend fun registerResponseEvent(response: SIPResponse) {
+        registerResponseChannel.send(response)
     }
 }

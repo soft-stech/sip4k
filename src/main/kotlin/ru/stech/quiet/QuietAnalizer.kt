@@ -1,4 +1,4 @@
-package ru.stech
+package ru.stech.quiet
 
 import java.util.ArrayList
 import kotlin.math.ln
