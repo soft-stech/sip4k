@@ -26,14 +26,20 @@ class SipClientHandler(private val sessionCache: SipSessionCache = SipSessionCac
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         CoroutineScope(dispatcher).launch {
             val inBuffer = msg as DatagramPacket
-            val buf = inBuffer.content()
-            val bytes = ByteArray(buf.readableBytes())
-            buf.readBytes(bytes)
-            val body = String(bytes)
-            if (isResponse(body)) {
-                processResponse(messageFactory.createResponse(body) as SIPResponse)
-            } else {
-                processRequest(messageFactory.createRequest(body) as SIPRequest)
+            try {
+                val buf = inBuffer.content()
+                val bytes = ByteArray(buf.readableBytes())
+                buf.readBytes(bytes)
+                val body = String(bytes)
+                if (isResponse(body)) {
+                    processResponse(messageFactory.createResponse(body) as SIPResponse)
+                } else {
+                    processRequest(messageFactory.createRequest(body) as SIPRequest)
+                }
+            } catch (e: Exception) {
+                throw e
+            } finally {
+                inBuffer.release()
             }
         }
     }
