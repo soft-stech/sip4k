@@ -38,6 +38,7 @@ class BotClient(
     val rtpClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
     val botCoroutineDispatcher: CoroutineDispatcher = Dispatchers.Default,
     val streamEventListener: (user: String, data: ByteArray, endOfPhrase: Boolean) -> Unit,
+    val endMediaSessionEventListener: (user: String) -> Unit
 ) {
     private val REGISTER_DELAY = 20
     private var registered = false
@@ -246,6 +247,7 @@ class BotClient(
     suspend fun endSession(to: String) {
         val session = sessionCache.remove("${to}@${botProperties.serverHost}")
         session?.stopCall()
+        endMediaSessionEventListener(to)
     }
 
     suspend fun sendAudioData(user: String, data: ByteArray) {

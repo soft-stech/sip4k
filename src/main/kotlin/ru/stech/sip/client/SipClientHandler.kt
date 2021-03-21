@@ -74,6 +74,10 @@ class SipClientHandler(private val sessionCache: SipSessionCache = SipSessionCac
                 val session = sessionCache.get((response.toHeader.address as AddressImpl).userAtHostPort)
                 session?.inviteResponseEvent(response)
             }
+            SIPRequest.BYE -> {
+                val session = sessionCache.get((response.toHeader.address as AddressImpl).userAtHostPort)
+                session?.byeResponseEvent(response)
+            }
             else -> throw IllegalArgumentException()
         }
     }

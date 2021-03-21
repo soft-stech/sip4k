@@ -208,12 +208,52 @@ class UserSession(private val to: String,
         byeRequestIsAlreadyReceived = true
     }
 
+
+    private val byeResponseChannel = Channel<SIPResponse>(0)
+    suspend fun byeResponseEvent(response: SIPResponse) {
+        byeResponseChannel.send(response)
+    }
+
     suspend fun stopCall() {
         if (!byeRequestIsAlreadyReceived) {
-            //TODO send bye request
+            val byeBranch = "z9hG4bK${UUID.randomUUID()}"
+            val toTag = UUID.randomUUID().toString()
+            val fromTag = UUID.randomUUID().toString()
+            val byeSipRequestBuilder = SipRequestBuilder(
+                RequestLine(
+                    GenericURI("sip:${to}@${botProperties.serverHost};transport=${TRANSPORT}"),
+                    SIPRequest.BYE)
+            )
+            byeSipRequestBuilder.headers[SIPHeader.VIA] =
+                headerFactory.createViaHeader(botProperties.clientHost, botProperties.clientSipPort, TRANSPORT, byeBranch)
+
+            byeSipRequestBuilder.headers[SIPHeader.CONTACT] = headerFactory.createContactHeader(
+                addressFactory.createAddress(
+                    addressFactory.createSipURI(botProperties.login, botProperties.clientHost)
+                )
+            )
+
+            val toSipURI = addressFactory.createSipURI(to, botProperties.serverHost)
+            toSipURI.transportParam = TRANSPORT
+            byeSipRequestBuilder.headers[SIPHeader.TO] =
+                headerFactory.createToHeader(addressFactory.createAddress(toSipURI), toTag)
+
+            val fromSipURI = addressFactory.createSipURI(botProperties.login, botProperties.serverHost)
+            toSipURI.transportParam = TRANSPORT
+            byeSipRequestBuilder.headers[SIPHeader.FROM] = headerFactory.createFromHeader(
+                addressFactory.createAddress(fromSipURI), fromTag)
+
+            byeSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(1L, SIPRequest.BYE)
+            byeSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] = headerFactory.createMaxForwardsHeader(MAX_FORWARDS)
+            byeSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(callId)
+            byeSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
+            byeSipRequestBuilder.headers[SIPHeader.CONTENT_LENGTH] = headerFactory.createContentLengthHeader(0)
+            sipClient.send(byeSipRequestBuilder.toString().toByteArray())
+            val byeResponse = byeResponseChannel.receive()
         }
         inviteResponseChannel.close()
         outputAudioChannel.close()
+        byeResponseChannel.close()
         rtpSession.stop()
     }
 
