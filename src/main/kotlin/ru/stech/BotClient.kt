@@ -256,6 +256,11 @@ class BotClient(
         session?.sendAudioData(compressData)
     }
 
+    fun resetQuietAnalizer(user: String) {
+        val session = sessionCache.get("${user}@${botProperties.serverHost}")
+        session?.resetQuietAnalizer()
+    }
+
     suspend fun registerResponseEvent(response: SIPResponse) {
         registerResponseChannel.send(response)
     }

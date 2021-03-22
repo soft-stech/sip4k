@@ -5,12 +5,16 @@ import kotlin.math.ln
 
 class QuietAnalizer {
     private val startAvr = 20800.0
-    private val mulConst = .9995
+    private val mulConst = 0.9995
     private var avr = 0.0
     private fun getShort(vararg vals: Byte): Int {
         val b1: Int = vals[0].toInt() and 0xFF
         val b2: Int = vals[1].toInt() and 0xFF
         return b1 shl 8 or b2
+    }
+
+    fun reset() {
+        avr = 0.0
     }
 
     fun isQuietAtSegment(bytes: ByteArray): Boolean {

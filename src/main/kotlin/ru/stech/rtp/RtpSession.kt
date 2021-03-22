@@ -10,7 +10,7 @@ import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.util.internal.SocketUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import ru.stech.BotClient
-import ru.stech.BotProperties
+import ru.stech.quiet.QuietAnalizer
 import kotlin.random.Random
 
 class RtpSession(
@@ -18,15 +18,19 @@ class RtpSession(
     val listenPort: Int,
     private val rtpNioEventLoopGroup: EventLoopGroup,
     private val dispatcher: CoroutineDispatcher,
-    private val botProperties: BotProperties,
     private val botClient: BotClient
 ) {
+    private val qa = QuietAnalizer()
     private lateinit var future: ChannelFuture
     var remoteHost: String? = null
     var remotePort: Int? = null
     private var seqNum: Short = 10000
     private var time = 3000
     private val ssrc = Random.Default.nextInt()
+
+    fun resetQuietAnalizer() {
+        qa.reset()
+    }
 
     /**
      * Start listening responses from remote rtp-server
@@ -42,7 +46,9 @@ class RtpSession(
                     ch.pipeline().addLast(RtpChannelInboundHandler(
                         user = user,
                         botClient = botClient,
-                        dispatcher = dispatcher))
+                        silenceDelay = 2000,
+                        qa = qa
+                    ))
                 }
             })
         future = rtpClientBootstrap.bind(listenPort).syncUninterruptibly()

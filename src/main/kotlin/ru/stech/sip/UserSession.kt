@@ -49,8 +49,7 @@ class UserSession(private val to: String,
         listenPort = localRtpPort,
         botClient = botClient,
         rtpNioEventLoopGroup = rtpNioEventLoopGroup,
-        dispatcher = botCoroutineDispatcher,
-        botProperties = botProperties
+        dispatcher = botCoroutineDispatcher
     )
     //jobs in this session
     private val sendRtpToAbonentJob = CoroutineScope(botCoroutineDispatcher).launch {
@@ -58,6 +57,10 @@ class UserSession(private val to: String,
             rtpSession.sendRtpData(data)
             delay(20)
         }
+    }
+
+    fun resetQuietAnalizer() {
+        rtpSession.resetQuietAnalizer()
     }
 
     suspend fun startCall(): Boolean {
