@@ -11,12 +11,9 @@ import ru.stech.BotClient
 @ExperimentalCoroutinesApi
 class RtpChannelInboundHandler(val user: String,
                                val botClient: BotClient,
-                               private val silenceDelay: Int,
                                private val qa: QuietAnalizer
 ): ChannelInboundHandlerAdapter() {
     private var lastTimeStamp = Integer.MIN_VALUE
-    private var silenceSum = 0
-    private var previousIsSilence = true
 
     @Throws(Exception::class)
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
@@ -29,17 +26,9 @@ class RtpChannelInboundHandler(val user: String,
             val g711data = rtpPacket.payload
             if (rtpPacket.timeStamp > lastTimeStamp) {
                 val silence = qa.isQuietAtSegment(bytes = g711data)
-                if (silence && previousIsSilence) {
-                    silenceSum += 20
-                } else {
-                    silenceSum = 0
-                }
-                if (silenceSum <= silenceDelay) {
-                    val pcm = decompressFromG711(inpb = g711data, useALaw = true)
-                    botClient.streamEventListener(user, pcm, silenceSum >= silenceDelay)
-                }
+                val pcm = decompressFromG711(inpb = g711data, useALaw = true)
+                botClient.streamEventListener(user, pcm, silence)
                 lastTimeStamp = rtpPacket.timeStamp
-                previousIsSilence = silence
             }
         } catch (e: Exception) {
             throw e

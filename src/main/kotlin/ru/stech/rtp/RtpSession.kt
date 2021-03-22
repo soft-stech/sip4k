@@ -46,7 +46,6 @@ class RtpSession(
                     ch.pipeline().addLast(RtpChannelInboundHandler(
                         user = user,
                         botClient = botClient,
-                        silenceDelay = 2000,
                         qa = qa
                     ))
                 }
