@@ -33,7 +33,7 @@ class SipClient(
                 @Throws(Exception::class)
                 override fun initChannel(ch: NioDatagramChannel) {
                     val pipeline = ch.pipeline()
-                    pipeline.addLast(SipClientHandler(
+                    pipeline.addLast(SipClientInboundHandler(
                         sessionCache = sessionCache,
                         dispatcher = dispatcher,
                         messageFactory = messageFactory,

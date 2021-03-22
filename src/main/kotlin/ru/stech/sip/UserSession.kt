@@ -13,12 +13,15 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import mu.KotlinLogging
 import ru.stech.BotClient
 import ru.stech.BotProperties
 import ru.stech.rtp.RtpSession
 import ru.stech.sdp.parseToSdpBody
 import ru.stech.sip.cache.SipSessionCache
 import ru.stech.sip.client.SipClient
+import ru.stech.sip.exceptions.SipTimeoutException
 import ru.stech.util.MAX_FORWARDS
 import ru.stech.util.TRANSPORT
 import ru.stech.util.getResponseHash
@@ -38,8 +41,15 @@ class UserSession(private val to: String,
                   private val botClient: BotClient,
                   private val sessionCache: SipSessionCache,
                   private val rtpNioEventLoopGroup: NioEventLoopGroup,
-                  private val botCoroutineDispatcher: CoroutineDispatcher
+                  private val botCoroutineDispatcher: CoroutineDispatcher,
+                  private val sipTimeout: Long = 60000
 ) {
+    private val logger = KotlinLogging.logger {}
+
+    companion object {
+        val SIP_TIMEOUT = "Sip timeout"
+    }
+
     private val callId = UUID.randomUUID().toString()
     private val inviteResponseChannel = Channel<SIPResponse>(0)
     private val outputAudioChannel = Channel<ByteArray>(3000)
@@ -108,7 +118,9 @@ class UserSession(private val to: String,
         inviteSipRequestBuilder.rtpPort = localRtpPort
 
         sipClient.send(inviteSipRequestBuilder.toString().toByteArray())
-        var inviteResponse = receiveFinalInvite()
+        var inviteResponse = withTimeoutOrNull(sipTimeout) {
+            receiveFinalInvite()
+        } ?: throw SipTimeoutException(SIP_TIMEOUT)
         ack(inviteBranch)
         if (inviteResponse.statusLine.statusCode == 401) {
             inviteBranch = "z9hG4bK${UUID.randomUUID()}"
@@ -143,17 +155,19 @@ class UserSession(private val to: String,
             inviteSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
 
             sipClient.send(inviteSipRequestBuilder.toString().toByteArray())
-            inviteResponse = receiveFinalInvite()
+            inviteResponse = withTimeoutOrNull(sipTimeout) {
+                receiveFinalInvite()
+            } ?: throw SipTimeoutException(SIP_TIMEOUT)
             ack(inviteBranch)
         }
         return if (inviteResponse.statusLine.statusCode == 200) {
-            print("Session is active")
+            logger.trace { "Session is active" }
             val sdp = inviteResponse.messageContent.parseToSdpBody()
             rtpSession.remotePort = sdp?.remoteRdpPort
             rtpSession.remoteHost = sdp?.remoteRdpHost
             true
         } else {
-            print("Session is not active")
+            logger.trace { "Session is not active" }
             false
         }
     }
@@ -252,7 +266,9 @@ class UserSession(private val to: String,
             byeSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
             byeSipRequestBuilder.headers[SIPHeader.CONTENT_LENGTH] = headerFactory.createContentLengthHeader(0)
             sipClient.send(byeSipRequestBuilder.toString().toByteArray())
-            val byeResponse = byeResponseChannel.receive()
+            val byeResponse = withTimeoutOrNull(sipTimeout) {
+                byeResponseChannel.receive()
+            } ?: throw SipTimeoutException(SIP_TIMEOUT)
         }
         inviteResponseChannel.close()
         outputAudioChannel.close()
