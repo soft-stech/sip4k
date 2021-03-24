@@ -237,7 +237,6 @@ class UserSession(private val to: String,
     suspend fun stopCall() {
         if (!byeRequestIsAlreadyReceived) {
             val byeBranch = "z9hG4bK${UUID.randomUUID()}"
-            val toTag = UUID.randomUUID().toString()
             val byeSipRequestBuilder = SipRequestBuilder(
                 RequestLine(
                     GenericURI("sip:${to}@${botProperties.serverHost};transport=${TRANSPORT}"),
