@@ -16,15 +16,15 @@ import ru.stech.sip.cache.SipSessionCacheImpl
 import javax.sip.message.MessageFactory
 
 @ExperimentalCoroutinesApi
-class SipClientHandler(private val sessionCache: SipSessionCache = SipSessionCacheImpl(),
-                       private val dispatcher: CoroutineDispatcher,
-                       private val messageFactory: MessageFactory,
-                       private val botClient: BotClient
+class SipClientInboundHandler(private val sessionCache: SipSessionCache = SipSessionCacheImpl(),
+                              private val coroutineDispatcher: CoroutineDispatcher,
+                              private val messageFactory: MessageFactory,
+                              private val botClient: BotClient
 ): ChannelInboundHandlerAdapter() {
 
     @Throws(Exception::class)
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
-        CoroutineScope(dispatcher).launch {
+        CoroutineScope(coroutineDispatcher).launch {
             val inBuffer = msg as DatagramPacket
             try {
                 val buf = inBuffer.content()

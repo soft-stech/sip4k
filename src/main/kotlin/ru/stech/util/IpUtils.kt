@@ -49,3 +49,10 @@ fun randomString(targetStringLength: Int): String {
         .collect({ StringBuilder() }, StringBuilder::appendCodePoint, StringBuilder::append)
         .toString()
 }
+
+suspend fun <T> receiveFromChannelWithTimeout(
+    timeout: Long,
+
+) {
+
+}

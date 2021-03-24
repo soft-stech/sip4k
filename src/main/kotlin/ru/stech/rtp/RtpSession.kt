@@ -27,6 +27,12 @@ class RtpSession(
     private var seqNum: Short = 10000
     private var time = 3000
     private val ssrc = Random.Default.nextInt()
+    private val rtpChannelInboundHandler = RtpChannelInboundHandler(
+        user = user,
+        botClient = botClient,
+        qa = qa,
+        rtpClientCoroutineDispatcher = dispatcher
+    )
 
     fun resetQuietAnalizer() {
         qa.reset()
@@ -43,11 +49,7 @@ class RtpSession(
             .handler(object : ChannelInitializer<NioDatagramChannel>() {
                 @Throws(Exception::class)
                 override fun initChannel(ch: NioDatagramChannel) {
-                    ch.pipeline().addLast(RtpChannelInboundHandler(
-                        user = user,
-                        botClient = botClient,
-                        qa = qa
-                    ))
+                    ch.pipeline().addLast(rtpChannelInboundHandler)
                 }
             })
         future = rtpClientBootstrap.bind(listenPort).syncUninterruptibly()
@@ -73,7 +75,8 @@ class RtpSession(
     /**
      * Stop listening responses from rtp-server
      */
-    fun stop() {
+    suspend fun stop() {
         future.channel().close().syncUninterruptibly()
+        rtpChannelInboundHandler.stop()
     }
 }

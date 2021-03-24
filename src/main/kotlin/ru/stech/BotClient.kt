@@ -14,18 +14,21 @@ import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.withTimeoutOrNull
+import mu.KotlinLogging
 import ru.stech.g711.compressToG711
 import ru.stech.sip.SipRequestBuilder
 import ru.stech.sip.UserSession
 import ru.stech.sip.cache.SipSessionCacheImpl
 import ru.stech.sip.client.SipClient
 import ru.stech.sip.exceptions.SipClientNotAvailableException
+import ru.stech.sip.exceptions.SipException
+import ru.stech.sip.exceptions.SipTimeoutException
 import ru.stech.util.EXPIRES
 import ru.stech.util.MAX_FORWARDS
 import ru.stech.util.TRANSPORT
 import ru.stech.util.getResponseHash
 import ru.stech.util.randomString
-import java.lang.IllegalArgumentException
 import java.util.*
 import javax.sip.SipFactory
 
@@ -37,9 +40,17 @@ class BotClient(
     val sipClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
     val rtpClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
     val botCoroutineDispatcher: CoroutineDispatcher = Dispatchers.Default,
+    val sipTimeout: Long = 60000,
     val streamEventListener: (user: String, data: ByteArray, endOfPhrase: Boolean) -> Unit,
     val endMediaSessionEventListener: (user: String) -> Unit
 ) {
+    companion object {
+        val SIP_TIMEOUT = "Sip timeout"
+        val NO_SUCH_SESSION = "No such sip session"
+    }
+
+    private val logger = KotlinLogging.logger {}
+
     private val REGISTER_DELAY = 20
     private var registered = false
     private val sipNioEventLoopGroup = NioEventLoopGroup(sipNioThreads)
@@ -70,11 +81,17 @@ class BotClient(
             )
             sipClient.start()
             CoroutineScope(botCoroutineDispatcher).launch {
-                startRegistrationByPeriod()
+                try {
+                    startRegistrationByPeriod()
+                } catch (e: Exception) {
+                    handleInternalThrowable(e)
+                } finally {
+                    registerResponseChannel.close()
+                }
             }
             return botIsStarted.receive()
         } else {
-            throw IllegalArgumentException("Bot already runned")
+            throw SipException("Bot already registered")
         }
     }
 
@@ -121,9 +138,11 @@ class BotClient(
             registerSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
             registerSipRequestBuilder.headers[SIPHeader.ALLOW_EVENTS] = headerFactory.createAllowEventsHeader("presence, kpml, talk")
             registerSipRequestBuilder.headers[SIPHeader.CONTENT_LENGTH] = headerFactory.createContentLengthHeader(0)
-
             sipClient.send(registerSipRequestBuilder.toString().toByteArray())
-            var registerResponse = registerResponseChannel.receive()
+            var registerResponse = withTimeoutOrNull(sipTimeout) {
+                registerResponseChannel.receive()
+            } ?: throw SipTimeoutException(SIP_TIMEOUT)
+
             if (registerResponse.statusLine.statusCode == 401) {
                 val registerWWWAuthenticateResponse = registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
                 registerSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(2L, "REGISTER")
@@ -146,24 +165,28 @@ class BotClient(
                 authenticationHeader.cNonce = cnonce
                 authenticationHeader.nonceCount = 1
                 authenticationHeader.qop = registerWWWAuthenticateResponse.qop
-                authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
-                authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
+                if (registerWWWAuthenticateResponse.algorithm != null)
+                    authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
+                if (registerWWWAuthenticateResponse.opaque != null)
+                    authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
                 registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
                 sipClient.send(registerSipRequestBuilder.toString().toByteArray())
-                registerResponse = registerResponseChannel.receive()
+                registerResponse = withTimeoutOrNull(sipTimeout) {
+                    registerResponseChannel.receive()
+                } ?: throw SipTimeoutException(SIP_TIMEOUT)
             }
             if (registerResponse.statusLine.statusCode == 200) {
                 if (!botIsStarted.isClosedForSend) {
                     botIsStarted.send(true)
                 }
-                print("Registration ok")
+                logger.trace { "Registration is ok" }
                 registered = true
                 botIsStarted.close()
             } else {
                 if (!botIsStarted.isClosedForSend) {
                     botIsStarted.send(false)
                 }
-                print("Registration failed")
+                logger.trace { "Registration is failed" }
                 botIsStarted.close()
             }
             delay(REGISTER_DELAY * 1000L)
@@ -173,12 +196,14 @@ class BotClient(
             addressFactory.createAddress(
                 addressFactory.createSipURI(botProperties.login, botProperties.clientHost)
             )
-        )
+        )?: throw SipTimeoutException(SIP_TIMEOUT)
         expiresContactHeader.expires = 0
         registerSipRequestBuilder!!.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(3L, SIPRequest.REGISTER)
         registerSipRequestBuilder.headers[SIPHeader.CONTACT] = expiresContactHeader
         sipClient.send(registerSipRequestBuilder.toString().toByteArray())
-        var unregisterResponse = registerResponseChannel.receive()
+        var unregisterResponse = withTimeoutOrNull(sipTimeout) {
+            registerResponseChannel.receive()
+        } ?: throw SipTimeoutException(SIP_TIMEOUT)
         if (unregisterResponse.statusLine.statusCode == 401) {
             val unregisterWWWAuthenticateResponse = unregisterResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
             val authenticationHeader = headerFactory.createAuthorizationHeader("Digest")
@@ -200,16 +225,20 @@ class BotClient(
             authenticationHeader.cNonce = cnonce
             authenticationHeader.nonceCount = 2
             authenticationHeader.qop = unregisterWWWAuthenticateResponse.qop
-            authenticationHeader.algorithm = unregisterWWWAuthenticateResponse.algorithm
-            authenticationHeader.opaque = unregisterWWWAuthenticateResponse.opaque
+            if (unregisterWWWAuthenticateResponse.algorithm != null)
+                authenticationHeader.algorithm = unregisterWWWAuthenticateResponse.algorithm
+            if (unregisterWWWAuthenticateResponse.opaque != null)
+                authenticationHeader.opaque = unregisterWWWAuthenticateResponse.opaque
             registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
             sipClient.send(registerSipRequestBuilder.toString().toByteArray())
-            unregisterResponse = registerResponseChannel.receive()
+            unregisterResponse = withTimeoutOrNull(sipTimeout) {
+                registerResponseChannel.receive()
+            } ?: throw SipTimeoutException(SIP_TIMEOUT)
         }
         if (unregisterResponse.statusLine.statusCode == 200) {
-            print("unregistration is ok\n")
+            logger.trace { "Unregistration is ok" }
         } else {
-            print("unregistration is not ok\n")
+            logger.trace { "Unregistration is failed" }
         }
     }
 
@@ -218,7 +247,7 @@ class BotClient(
     }
 
     suspend fun optionsRequestEvent(request: SIPRequest) {
-        val response = request.createResponse(200);
+        val response = request.createResponse(200)
         response.setHeader(headerFactory.createAllowHeader("INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE"))
         response.setHeader(headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"))
         sipClient.send(response.toString().toByteArray())
@@ -244,24 +273,31 @@ class BotClient(
         }
     }
 
-    suspend fun endSession(to: String) {
-        val session = sessionCache.remove("${to}@${botProperties.serverHost}")
-        session?.stopCall()
-        endMediaSessionEventListener(to)
+    suspend fun endSession(user: String) {
+        val session = sessionCache.remove("${user}@${botProperties.serverHost}")
+            ?: throw SipClientNotAvailableException(NO_SUCH_SESSION)
+        session.stopCall()
+        endMediaSessionEventListener(user)
     }
 
     suspend fun sendAudioData(user: String, data: ByteArray) {
         val compressData = compressToG711(inpb = data, useALaw = true)
         val session = sessionCache.get("${user}@${botProperties.serverHost}")
-        session?.sendAudioData(compressData)
+            ?: throw SipClientNotAvailableException(NO_SUCH_SESSION)
+        session.sendAudioData(compressData)
     }
 
     fun resetQuietAnalizer(user: String) {
         val session = sessionCache.get("${user}@${botProperties.serverHost}")
-        session?.resetQuietAnalizer()
+            ?: throw SipClientNotAvailableException(NO_SUCH_SESSION)
+        session.resetQuietAnalizer()
     }
 
     suspend fun registerResponseEvent(response: SIPResponse) {
         registerResponseChannel.send(response)
+    }
+
+    private fun handleInternalThrowable(t: Throwable) {
+        logger.error(t) { t.message }
     }
 }

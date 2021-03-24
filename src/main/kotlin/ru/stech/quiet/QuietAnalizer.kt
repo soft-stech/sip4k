@@ -1,6 +1,6 @@
 package ru.stech.quiet
 
-import java.util.ArrayList
+import java.util.*
 import kotlin.math.ln
 
 class QuietAnalizer {
