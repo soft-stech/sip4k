@@ -165,8 +165,10 @@ class BotClient(
                 authenticationHeader.cNonce = cnonce
                 authenticationHeader.nonceCount = 1
                 authenticationHeader.qop = registerWWWAuthenticateResponse.qop
-                authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
-                authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
+                if (registerWWWAuthenticateResponse.algorithm != null)
+                    authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
+                if (registerWWWAuthenticateResponse.opaque != null)
+                    authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
                 registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
                 sipClient.send(registerSipRequestBuilder.toString().toByteArray())
                 registerResponse = withTimeoutOrNull(sipTimeout) {
@@ -223,8 +225,10 @@ class BotClient(
             authenticationHeader.cNonce = cnonce
             authenticationHeader.nonceCount = 2
             authenticationHeader.qop = unregisterWWWAuthenticateResponse.qop
-            authenticationHeader.algorithm = unregisterWWWAuthenticateResponse.algorithm
-            authenticationHeader.opaque = unregisterWWWAuthenticateResponse.opaque
+            if (unregisterWWWAuthenticateResponse.algorithm != null)
+                authenticationHeader.algorithm = unregisterWWWAuthenticateResponse.algorithm
+            if (unregisterWWWAuthenticateResponse.opaque != null)
+                authenticationHeader.opaque = unregisterWWWAuthenticateResponse.opaque
             registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
             sipClient.send(registerSipRequestBuilder.toString().toByteArray())
             unregisterResponse = withTimeoutOrNull(sipTimeout) {

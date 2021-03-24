@@ -150,8 +150,10 @@ class UserSession(private val to: String,
             authenticationHeader.cNonce = cnonce
             authenticationHeader.nonceCount = 1
             authenticationHeader.qop = inviteWWWAuthenticateResponse.qop
-            authenticationHeader.algorithm = inviteWWWAuthenticateResponse.algorithm
-            authenticationHeader.opaque = inviteWWWAuthenticateResponse.opaque
+            if (inviteWWWAuthenticateResponse.algorithm != null)
+                authenticationHeader.algorithm = inviteWWWAuthenticateResponse.algorithm
+            if (inviteWWWAuthenticateResponse.opaque != null)
+                authenticationHeader.opaque = inviteWWWAuthenticateResponse.opaque
             inviteSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
 
             sipClient.send(inviteSipRequestBuilder.toString().toByteArray())

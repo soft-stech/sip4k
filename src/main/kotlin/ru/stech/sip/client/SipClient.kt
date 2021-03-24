@@ -35,7 +35,7 @@ class SipClient(
                     val pipeline = ch.pipeline()
                     pipeline.addLast(SipClientInboundHandler(
                         sessionCache = sessionCache,
-                        dispatcher = dispatcher,
+                        coroutineDispatcher = dispatcher,
                         messageFactory = messageFactory,
                         botClient = botClient
                     ))

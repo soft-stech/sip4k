@@ -11,7 +11,6 @@ import kotlinx.coroutines.launch
 import ru.stech.BotClient
 import ru.stech.g711.decompressFromG711
 import ru.stech.quiet.QuietAnalizer
-import java.util.concurrent.ConcurrentLinkedQueue
 
 @ExperimentalCoroutinesApi
 class RtpChannelInboundHandler(val user: String,
@@ -20,12 +19,18 @@ class RtpChannelInboundHandler(val user: String,
                                private val rtpClientCoroutineDispatcher: CoroutineDispatcher
 ): ChannelInboundHandlerAdapter() {
     private var lastTimeStamp = Integer.MIN_VALUE
-    private val rtpQueue = ConcurrentLinkedQueue<Pair<ByteArray, Boolean>>()
+    private val rtpQueue = Channel<Triple<ByteArray, Boolean, Int>>(3000)
     private val queueJob = CoroutineScope(rtpClientCoroutineDispatcher).launch {
-        rtpQueue
-        for (rtpQueueItem in rtpQueue) {
-            botClient.streamEventListener(user, rtpQueueItem.first, rtpQueueItem.second)
+        for (item in rtpQueue) {
+            if (item.third > lastTimeStamp) {
+                botClient.streamEventListener(user, item.first, item.second)
+                lastTimeStamp = item.third
+            }
         }
+    }
+
+    suspend fun stop() {
+        rtpQueue.close()
     }
 
     @Throws(Exception::class)
@@ -38,12 +43,9 @@ class RtpChannelInboundHandler(val user: String,
                 nioBuffer.readBytes(rtpData)
                 val rtpPacket = RtpPacket(rtpData)
                 val g711data = rtpPacket.payload
-                if (rtpPacket.timeStamp > lastTimeStamp) {
-                    val silence = qa.isQuietAtSegment(bytes = g711data)
-                    val pcm = decompressFromG711(inpb = g711data, useALaw = true)
-                    botClient.streamEventListener(user, pcm, silence)
-                    lastTimeStamp = rtpPacket.timeStamp
-                }
+                val silence = qa.isQuietAtSegment(g711data)
+                val pcm = decompressFromG711(g711data, true)
+                rtpQueue.send(Triple(pcm, silence, rtpPacket.timeStamp))
             } catch (e: Exception) {
                 throw e
             } finally {
