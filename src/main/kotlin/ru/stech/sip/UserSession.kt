@@ -51,6 +51,8 @@ class UserSession(private val to: String,
     }
 
     private val callId = UUID.randomUUID().toString()
+    private val fromTag = randomString(8)
+    private lateinit var toTag: String
     private val inviteResponseChannel = Channel<SIPResponse>(0)
     private val outputAudioChannel = Channel<ByteArray>(3000)
     private val localRtpPort = sessionCache.newRtpPort()
@@ -75,7 +77,6 @@ class UserSession(private val to: String,
 
     suspend fun startCall(): Boolean {
         rtpSession.start()
-        val fromTag = randomString(8)
         var inviteBranch = "z9hG4bK${UUID.randomUUID()}"
         val inviteSipRequestBuilder = SipRequestBuilder(
             RequestLine(
@@ -162,6 +163,7 @@ class UserSession(private val to: String,
             } ?: throw SipTimeoutException(SIP_TIMEOUT)
             ack(inviteBranch)
         }
+        toTag = inviteResponse.toTag
         return if (inviteResponse.statusLine.statusCode == 200) {
             logger.trace { "Session is active" }
             val sdp = inviteResponse.messageContent.parseToSdpBody()
@@ -183,7 +185,6 @@ class UserSession(private val to: String,
     }
 
     private fun ack(branch: String) {
-        val fromTag = randomString(8)
         val ackSipRequestBuilder = SipRequestBuilder(
             RequestLine(
                 GenericURI("sip:${to}@${botProperties.serverHost};transport=${TRANSPORT}"),
@@ -195,7 +196,7 @@ class UserSession(private val to: String,
 
         val toSipURI = addressFactory.createSipURI(botProperties.login, botProperties.serverHost)
         ackSipRequestBuilder.headers[SIPHeader.TO] = headerFactory.createToHeader(
-            addressFactory.createAddress(toSipURI), branch
+            addressFactory.createAddress(toSipURI), toTag
         )
 
         val fromSipURI = addressFactory.createSipURI(botProperties.login, botProperties.serverHost)
@@ -237,7 +238,6 @@ class UserSession(private val to: String,
         if (!byeRequestIsAlreadyReceived) {
             val byeBranch = "z9hG4bK${UUID.randomUUID()}"
             val toTag = UUID.randomUUID().toString()
-            val fromTag = UUID.randomUUID().toString()
             val byeSipRequestBuilder = SipRequestBuilder(
                 RequestLine(
                     GenericURI("sip:${to}@${botProperties.serverHost};transport=${TRANSPORT}"),
