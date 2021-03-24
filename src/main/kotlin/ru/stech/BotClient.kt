@@ -274,9 +274,11 @@ class BotClient(
     }
 
     suspend fun endSession(user: String) {
-        val session = sessionCache.remove("${user}@${botProperties.serverHost}")
+        val sessionId = "${user}@${botProperties.serverHost}"
+        val session = sessionCache.get(sessionId)
             ?: throw SipClientNotAvailableException(NO_SUCH_SESSION)
         session.stopCall()
+        sessionCache.remove(sessionId)
         endMediaSessionEventListener(user)
     }
 
