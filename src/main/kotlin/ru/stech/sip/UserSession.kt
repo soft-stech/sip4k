@@ -122,6 +122,7 @@ class UserSession(private val to: String,
         var inviteResponse = withTimeoutOrNull(sipTimeout) {
             receiveFinalInvite()
         } ?: throw SipTimeoutException(SIP_TIMEOUT)
+        toTag = inviteResponse.toTag
         ack(inviteBranch)
         if (inviteResponse.statusLine.statusCode == 401) {
             inviteBranch = "z9hG4bK${UUID.randomUUID()}"
@@ -161,9 +162,9 @@ class UserSession(private val to: String,
             inviteResponse = withTimeoutOrNull(sipTimeout) {
                 receiveFinalInvite()
             } ?: throw SipTimeoutException(SIP_TIMEOUT)
+            toTag = inviteResponse.toTag
             ack(inviteBranch)
         }
-        toTag = inviteResponse.toTag
         return if (inviteResponse.statusLine.statusCode == 200) {
             logger.trace { "Session is active" }
             val sdp = inviteResponse.messageContent.parseToSdpBody()
