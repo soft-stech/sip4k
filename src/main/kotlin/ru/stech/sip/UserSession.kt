@@ -262,7 +262,7 @@ class UserSession(private val to: String,
             byeSipRequestBuilder.headers[SIPHeader.FROM] = headerFactory.createFromHeader(
                 addressFactory.createAddress(fromSipURI), fromTag)
 
-            byeSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(1L, SIPRequest.BYE)
+            byeSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(3L, SIPRequest.BYE)
             byeSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] = headerFactory.createMaxForwardsHeader(MAX_FORWARDS)
             byeSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(callId)
             byeSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
