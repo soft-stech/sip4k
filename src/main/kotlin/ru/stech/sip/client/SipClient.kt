@@ -12,6 +12,7 @@ import kotlinx.coroutines.CoroutineDispatcher
 import ru.stech.BotClient
 import ru.stech.sip.cache.SipSessionCache
 import javax.sip.message.MessageFactory
+import kotlin.jvm.Throws
 
 class SipClient(
     val serverHost: String,

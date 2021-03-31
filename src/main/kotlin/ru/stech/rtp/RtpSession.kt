@@ -11,11 +11,14 @@ import io.netty.util.internal.SocketUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import ru.stech.BotClient
 import ru.stech.quiet.QuietAnalizer
+import ru.stech.util.randomString
+import kotlin.jvm.Throws
 import kotlin.random.Random
 
 class RtpSession(
     val user: String,
     val listenPort: Int,
+    val rtpSessionId: String = randomString(10, 57),
     private val rtpNioEventLoopGroup: EventLoopGroup,
     private val dispatcher: CoroutineDispatcher,
     private val botClient: BotClient

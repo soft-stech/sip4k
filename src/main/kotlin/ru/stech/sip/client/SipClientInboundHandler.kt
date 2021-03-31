@@ -1,6 +1,7 @@
 package ru.stech.sip.client
 
 import gov.nist.javax.sip.address.AddressImpl
+import gov.nist.javax.sip.header.Via
 import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.ChannelHandlerContext
@@ -14,6 +15,7 @@ import ru.stech.BotClient
 import ru.stech.sip.cache.SipSessionCache
 import ru.stech.sip.cache.SipSessionCacheImpl
 import javax.sip.message.MessageFactory
+import kotlin.jvm.Throws
 
 @ExperimentalCoroutinesApi
 class SipClientInboundHandler(private val sessionCache: SipSessionCache = SipSessionCacheImpl(),
