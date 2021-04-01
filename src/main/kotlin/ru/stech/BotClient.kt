@@ -135,9 +135,7 @@ class BotClient(
             registerSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(registerCallId)
             registerSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(cSeq++, SIPRequest.REGISTER)
             registerSipRequestBuilder.headers[SIPHeader.EXPIRES] = headerFactory.createExpiresHeader(EXPIRES)
-            registerSipRequestBuilder.headers[SIPHeader.ALLOW] = headerFactory.createAllowHeader("INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE")
             registerSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
-            registerSipRequestBuilder.headers[SIPHeader.ALLOW_EVENTS] = headerFactory.createAllowEventsHeader("presence, kpml, talk")
             registerSipRequestBuilder.headers[SIPHeader.CONTENT_LENGTH] = headerFactory.createContentLengthHeader(0)
             sipClient.send(registerSipRequestBuilder.toString().toByteArray())
             var registerResponse = withTimeoutOrNull(sipTimeout) {
@@ -249,7 +247,7 @@ class BotClient(
 
     suspend fun optionsRequestEvent(request: SIPRequest) {
         val response = request.createResponse(200)
-        response.setHeader(headerFactory.createAllowHeader("INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE"))
+        response.setHeader(headerFactory.createAllowHeader("PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS"))
         response.setHeader(headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"))
         sipClient.send(response.toString().toByteArray())
     }
