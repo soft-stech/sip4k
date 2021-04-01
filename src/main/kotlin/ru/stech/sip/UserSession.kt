@@ -116,7 +116,6 @@ class UserSession(private val to: String,
 
         inviteSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(callId)
         inviteSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(1L, SIPRequest.INVITE)
-        ///inviteSipRequestBuilder.headers[SIPHeader.ROUTE] = headerFactory.createRouteHeader(botProperties.serverHost)
 
 
         inviteSipRequestBuilder.headers[SIPHeader.ALLOW] =
@@ -124,7 +123,6 @@ class UserSession(private val to: String,
         inviteSipRequestBuilder.headers[SIPHeader.SUPPORTED] = headerFactory.createSupportedHeader("replaces, 100rel, norefersub")
 
         inviteSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
-        //inviteSipRequestBuilder.headers[SIPHeader.ALLOW_EVENTS] = headerFactory.createAllowEventsHeader("presence, kpml, talk")
 
         inviteSipRequestBuilder.headers[SIPHeader.CONTENT_TYPE] = headerFactory.createContentTypeHeader("application", "sdp")
 
@@ -138,7 +136,7 @@ class UserSession(private val to: String,
             receiveFinalInvite()
         } ?: throw SipTimeoutException(SIP_TIMEOUT)
         toTag = inviteResponse.toTag
-        ack(inviteBranch)
+        ack(inviteBranch, "${to}@${botProperties.serverHost}", 1L)
         if (inviteResponse.statusLine.statusCode == 401) {
             inviteBranch = "z9hG4bK${UUID.randomUUID()}"
             val cnonce = UUID.randomUUID().toString()
@@ -181,8 +179,7 @@ class UserSession(private val to: String,
 
             if(inviteResponse.statusLine.statusCode == 200){
                 var hostPort = ((inviteResponse.getHeader("contact") as Contact).address as AddressImpl).hostPort.toString()
-                var did = (((inviteResponse.getHeader("contact") as Contact).address as AddressImpl).uri as SipUri).parameters["did"]?.value.toString()
-                ack2(inviteBranch, hostPort, did)
+                ack(inviteBranch, hostPort, 2L)
             }
 
         }
@@ -206,10 +203,10 @@ class UserSession(private val to: String,
         return inviteResponse
     }
 
-    private fun ack(branch: String) {
+    private fun ack(branch: String, address: String, cseq: Long) {
         val ackSipRequestBuilder = SipRequestBuilder(
             RequestLine(
-                GenericURI("sip:${to}@${botProperties.serverHost};transport=${TRANSPORT}"),
+                GenericURI("sip:${address};transport=${TRANSPORT}"),
                 SIPRequest.ACK)
         )
         ackSipRequestBuilder.headers[SIPHeader.VIA] =
@@ -227,37 +224,7 @@ class UserSession(private val to: String,
 
         ackSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(callId)
 
-        ackSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(1L, SIPRequest.ACK)
-
-        ackSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] = headerFactory.createMaxForwardsHeader(MAX_FORWARDS)
-
-        ackSipRequestBuilder.headers[SIPHeader.CONTENT_LENGTH] = headerFactory.createContentLengthHeader(0)
-
-        sipClient.send(ackSipRequestBuilder.toString().toByteArray())
-    }
-
-    private fun ack2(branch: String, hostPort: String, did: String) {
-        val ackSipRequestBuilder = SipRequestBuilder(
-            RequestLine(
-                GenericURI("sip:${hostPort};did=$did;transport=${TRANSPORT}"),
-                SIPRequest.ACK)
-        )
-        ackSipRequestBuilder.headers[SIPHeader.VIA] =
-            headerFactory.createViaHeader(botProperties.clientHost, botProperties.clientSipPort, TRANSPORT, branch)
-
-        val toSipURI = addressFactory.createSipURI(to, botProperties.serverHost+":"+botProperties.serverSipPort)
-        ackSipRequestBuilder.headers[SIPHeader.TO] = headerFactory.createToHeader(
-            addressFactory.createAddress(toSipURI), toTag
-        )
-
-        val fromSipURI = addressFactory.createSipURI(botProperties.login, botProperties.serverHost)
-        ackSipRequestBuilder.headers[SIPHeader.FROM] = headerFactory.createFromHeader(
-            addressFactory.createAddress(fromSipURI), fromTag
-        )
-
-        ackSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(callId)
-
-        ackSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(2L, SIPRequest.ACK)
+        ackSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(cseq, SIPRequest.ACK)
 
         ackSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] = headerFactory.createMaxForwardsHeader(MAX_FORWARDS)
 
