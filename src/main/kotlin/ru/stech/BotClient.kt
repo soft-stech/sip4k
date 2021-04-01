@@ -3,7 +3,6 @@ package ru.stech
 import gov.nist.javax.sip.address.GenericURI
 import gov.nist.javax.sip.header.RequestLine
 import gov.nist.javax.sip.header.SIPHeader
-import gov.nist.javax.sip.header.Via
 import gov.nist.javax.sip.header.WWWAuthenticate
 import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse

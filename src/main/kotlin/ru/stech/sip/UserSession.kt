@@ -2,7 +2,6 @@ package ru.stech.sip
 
 import gov.nist.javax.sip.address.AddressImpl
 import gov.nist.javax.sip.address.GenericURI
-import gov.nist.javax.sip.address.SipUri
 import gov.nist.javax.sip.header.Contact
 import gov.nist.javax.sip.header.RequestLine
 import gov.nist.javax.sip.header.SIPHeader

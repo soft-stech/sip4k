@@ -12,7 +12,6 @@ import kotlinx.coroutines.CoroutineDispatcher
 import ru.stech.BotClient
 import ru.stech.quiet.QuietAnalizer
 import ru.stech.util.randomString
-import kotlin.jvm.Throws
 import kotlin.random.Random
 
 class RtpSession(
