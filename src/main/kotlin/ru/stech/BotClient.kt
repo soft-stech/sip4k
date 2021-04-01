@@ -96,6 +96,7 @@ class BotClient(
     }
 
     private suspend fun startRegistrationByPeriod() {
+        var cSeq = 1L
         val registerBranch = "z9hG4bK${UUID.randomUUID()}"
         val registerCallId = UUID.randomUUID().toString()
         val cnonce = UUID.randomUUID().toString()
@@ -132,7 +133,7 @@ class BotClient(
                     addressFactory.createAddress(fromSipURI), fromTag)
 
             registerSipRequestBuilder.headers[SIPHeader.CALL_ID] = headerFactory.createCallIdHeader(registerCallId)
-            registerSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(1L, SIPRequest.REGISTER)
+            registerSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(cSeq++, SIPRequest.REGISTER)
             registerSipRequestBuilder.headers[SIPHeader.EXPIRES] = headerFactory.createExpiresHeader(EXPIRES)
             registerSipRequestBuilder.headers[SIPHeader.ALLOW] = headerFactory.createAllowHeader("INVITE, ACK, CANCEL, BYE, NOTIFY, REFER, MESSAGE, OPTIONS, INFO, SUBSCRIBE")
             registerSipRequestBuilder.headers[SIPHeader.USER_AGENT] = headerFactory.createUserAgentHeader(listOf("Sip4k"))
@@ -145,7 +146,7 @@ class BotClient(
 
             if (registerResponse.statusLine.statusCode == 401) {
                 val registerWWWAuthenticateResponse = registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
-                registerSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(2L, "REGISTER")
+                registerSipRequestBuilder.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(cSeq++, "REGISTER")
                 val authenticationHeader = headerFactory.createAuthorizationHeader("Digest")
                 authenticationHeader.username = botProperties.login
                 authenticationHeader.realm = registerWWWAuthenticateResponse.realm
@@ -198,7 +199,7 @@ class BotClient(
             )
         )?: throw SipTimeoutException(SIP_TIMEOUT)
         expiresContactHeader.expires = 0
-        registerSipRequestBuilder!!.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(3L, SIPRequest.REGISTER)
+        registerSipRequestBuilder!!.headers[SIPHeader.CSEQ] = headerFactory.createCSeqHeader(cSeq++, SIPRequest.REGISTER)
         registerSipRequestBuilder.headers[SIPHeader.CONTACT] = expiresContactHeader
         sipClient.send(registerSipRequestBuilder.toString().toByteArray())
         var unregisterResponse = withTimeoutOrNull(sipTimeout) {
