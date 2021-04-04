@@ -8,14 +8,12 @@ import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.launch
 import ru.stech.BotClient
 import ru.stech.sip.cache.SipSessionCache
 import ru.stech.sip.cache.SipSessionCacheImpl
 import javax.sip.message.MessageFactory
 
-@ExperimentalCoroutinesApi
 class SipClientInboundHandler(private val sessionCache: SipSessionCache = SipSessionCacheImpl(),
                               private val coroutineDispatcher: CoroutineDispatcher,
                               private val messageFactory: MessageFactory,

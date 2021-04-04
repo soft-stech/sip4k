@@ -6,5 +6,4 @@ interface SipSessionCache {
     fun get(key: String): UserSession?
     fun put(key: String, session: UserSession)
     fun remove(key: String): UserSession?
-    fun newRtpPort(): Int
 }
