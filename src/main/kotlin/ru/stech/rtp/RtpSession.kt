@@ -11,6 +11,7 @@ import io.netty.util.internal.SocketUtils
 import kotlinx.coroutines.CoroutineDispatcher
 import ru.stech.BotClient
 import ru.stech.quiet.QuietAnalizer
+import ru.stech.sip.cache.RtpPortsCache
 import ru.stech.util.randomString
 import kotlin.random.Random
 
@@ -18,8 +19,9 @@ class RtpSession(
     val user: String,
     val listenPort: Int,
     val rtpSessionId: String = randomString(10, 57),
+    private val rtpPortsCache: RtpPortsCache,
     private val rtpNioEventLoopGroup: EventLoopGroup,
-    private val dispatcher: CoroutineDispatcher,
+    private val rtpClientCoroutineDispatcher: CoroutineDispatcher,
     private val botClient: BotClient
 ) {
     private val qa = QuietAnalizer()
@@ -31,9 +33,11 @@ class RtpSession(
     private val ssrc = Random.Default.nextInt()
     private val rtpChannelInboundHandler = RtpChannelInboundHandler(
         user = user,
+        rtpLocalPort = listenPort,
         botClient = botClient,
         qa = qa,
-        rtpClientCoroutineDispatcher = dispatcher
+        rtpPortsCache = rtpPortsCache,
+        rtpClientCoroutineDispatcher = rtpClientCoroutineDispatcher
     )
 
     fun resetQuietAnalizer() {

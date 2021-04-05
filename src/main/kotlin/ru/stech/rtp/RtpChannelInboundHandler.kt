@@ -5,17 +5,18 @@ import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
 import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.ExperimentalCoroutinesApi
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import ru.stech.BotClient
 import ru.stech.g711.decompressFromG711
 import ru.stech.quiet.QuietAnalizer
+import ru.stech.sip.cache.RtpPortsCache
 
-@ExperimentalCoroutinesApi
 class RtpChannelInboundHandler(val user: String,
+                               val rtpLocalPort: Int,
                                val botClient: BotClient,
                                private val qa: QuietAnalizer,
+                               private val rtpPortsCache: RtpPortsCache,
                                private val rtpClientCoroutineDispatcher: CoroutineDispatcher
 ): ChannelInboundHandlerAdapter() {
     private var lastTimeStamp = Integer.MIN_VALUE
@@ -53,4 +54,11 @@ class RtpChannelInboundHandler(val user: String,
             }
         }
     }
+
+    @Throws(Exception::class)
+    override fun channelInactive(ctx: ChannelHandlerContext) {
+        rtpPortsCache.returnPort(rtpLocalPort)
+    }
+
+
 }
