@@ -41,7 +41,7 @@ class BotClient(
     private val botCoroutineDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val sipTimeout: Long = 60000,
     val streamEventListener: (user: String, data: ByteArray, endOfPhrase: Boolean) -> Unit,
-    val endMediaSessionEventListener: (user: String, byClient: Boolean) -> Unit
+    val endMediaSessionEventListener: (user: String, byAbonent: Boolean) -> Unit
 ) {
     companion object {
         private const val SIP_TIMEOUT = "Sip timeout"
@@ -272,13 +272,13 @@ class BotClient(
         }
     }
 
-    suspend fun endSession(user: String, byClient: Boolean) {
+    suspend fun endSession(user: String, byAbonent: Boolean = false) {
         val sessionId = "${user}@${botProperties.serverHost}"
         val session = sessionCache.get(sessionId)
             ?: throw SipClientNotAvailableException(NO_SUCH_SESSION)
         session.stopCall()
         sessionCache.remove(sessionId)
-        endMediaSessionEventListener(user, byClient)
+        endMediaSessionEventListener(user, byAbonent)
     }
 
     suspend fun sendAudioData(user: String, data: ByteArray) {
