@@ -243,7 +243,7 @@ class UserSession(private val to: String,
     private var byeRequestIsAlreadyReceived = false
     suspend fun byeRequestEvent(request: SIPRequest) {
         sipClient.send(request.createResponse(200).toString().toByteArray())
-        botClient.endSession(to)
+        botClient.endSession(to, false)
         byeRequestIsAlreadyReceived = true
     }
 
