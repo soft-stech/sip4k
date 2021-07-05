@@ -7,38 +7,29 @@ import gov.nist.javax.sip.header.WWWAuthenticate
 import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.nio.NioEventLoopGroup
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
-import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import mu.KotlinLogging
 import ru.stech.g711.compressToG711
 import ru.stech.sip.SipRequestBuilder
 import ru.stech.sip.UserSession
 import ru.stech.sip.cache.RtpPortsCache
-import ru.stech.sip.cache.SipSessionCacheImpl
+import ru.stech.sip.cache.SipConnectionCacheImpl
 import ru.stech.sip.client.SipClient
-import ru.stech.sip.exceptions.SipClientNotAvailableException
 import ru.stech.sip.exceptions.SipException
-import ru.stech.sip.exceptions.SipTimeoutException
 import ru.stech.util.EXPIRES
 import ru.stech.util.MAX_FORWARDS
 import ru.stech.util.TRANSPORT
 import ru.stech.util.getResponseHash
 import ru.stech.util.randomString
 import java.util.*
-import javax.sip.SipFactory
 
 class BotClient(
     val botProperties: BotProperties,
     val sipNioThreads: Int = 1,
     val rtpNioThreads: Int = 1,
-    private val sipClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val rtpClientCoroutineDispatcher: CoroutineDispatcher = Dispatchers.IO,
-    private val botCoroutineDispatcher: CoroutineDispatcher = Dispatchers.Default,
     private val sipTimeout: Long = 60000,
     val streamEventListener: (user: String, data: ByteArray, endOfPhrase: Boolean) -> Unit,
     val endMediaSessionEventListener: (user: String, byAbonent: Boolean) -> Unit
@@ -48,20 +39,14 @@ class BotClient(
         private const val NO_SUCH_SESSION = "No such sip session"
         private const val REGISTER_DELAY = 20
     }
-    private val logger = KotlinLogging.logger {}
 
     private var registered = false
     private val sipNioEventLoopGroup = NioEventLoopGroup(sipNioThreads)
     private val rtpNioEventLoopGroup = NioEventLoopGroup(rtpNioThreads)
 
-    private val sipFactory = SipFactory.getInstance()
-    private val messageFactory = sipFactory.createMessageFactory()
-    private val headerFactory = sipFactory.createHeaderFactory()
-    private val addressFactory = sipFactory.createAddressFactory()
-
     private lateinit var sipClient: SipClient
 
-    private val sessionCache = SipSessionCacheImpl()
+    private val sessionCache = SipConnectionCacheImpl()
     private val rtpPortsCache = RtpPortsCache(botProperties.diapason)
     private val registerResponseChannel = Channel<SIPResponse>(0)
 
@@ -72,11 +57,7 @@ class BotClient(
                 serverHost = botProperties.serverHost,
                 serverPort = botProperties.serverSipPort,
                 sipListenPort = botProperties.clientSipPort,
-                workerGroup = sipNioEventLoopGroup,
-                dispatcher = sipClientCoroutineDispatcher,
-                messageFactory = messageFactory,
-                sessionCache = sessionCache,
-                botClient = this
+                workerGroup = sipNioEventLoopGroup
             )
             sipClient.start()
             CoroutineScope(botCoroutineDispatcher).launch {

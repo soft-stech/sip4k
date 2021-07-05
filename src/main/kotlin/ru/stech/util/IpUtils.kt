@@ -6,6 +6,7 @@ import java.net.NetworkInterface
 import java.security.MessageDigest
 import java.util.*
 
+const val LIBNAME = "Sip4k"
 const val TRANSPORT = "udp"
 const val MAX_FORWARDS = 70
 const val EXPIRES = 30

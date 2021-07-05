@@ -19,8 +19,12 @@ class RtpChannelInboundHandler(val user: String,
                                private val rtpPortsCache: RtpPortsCache,
                                private val rtpClientCoroutineDispatcher: CoroutineDispatcher
 ): ChannelInboundHandlerAdapter() {
+    companion object {
+        private const val RTP_CHANNEL_CAPACITY = 3000
+    }
+
     private var lastTimeStamp = Integer.MIN_VALUE
-    private val rtpQueue = Channel<Triple<ByteArray, Boolean, Int>>(3000)
+    private val rtpQueue = Channel<Triple<ByteArray, Boolean, Int>>(RTP_CHANNEL_CAPACITY)
     private val queueJob = CoroutineScope(rtpClientCoroutineDispatcher).launch {
         for (item in rtpQueue) {
             if (item.third > lastTimeStamp) {
@@ -30,11 +34,10 @@ class RtpChannelInboundHandler(val user: String,
         }
     }
 
-    suspend fun stop() {
+    fun stop() {
         rtpQueue.close()
     }
 
-    @Throws(Exception::class)
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         CoroutineScope(rtpClientCoroutineDispatcher).launch {
             val nioBuffer = (msg as DatagramPacket).content()
@@ -55,7 +58,6 @@ class RtpChannelInboundHandler(val user: String,
         }
     }
 
-    @Throws(Exception::class)
     override fun channelInactive(ctx: ChannelHandlerContext) {
         rtpPortsCache.returnPort(rtpLocalPort)
     }

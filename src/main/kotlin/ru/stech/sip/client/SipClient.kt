@@ -1,58 +1,229 @@
 package ru.stech.sip.client
 
+import gov.nist.javax.sip.address.GenericURI
+import gov.nist.javax.sip.header.RequestLine
+import gov.nist.javax.sip.header.SIPHeader
+import gov.nist.javax.sip.header.WWWAuthenticate
+import gov.nist.javax.sip.message.SIPRequest
+import gov.nist.javax.sip.message.SIPResponse
 import io.netty.bootstrap.Bootstrap
 import io.netty.buffer.Unpooled
-import io.netty.channel.Channel
 import io.netty.channel.ChannelInitializer
 import io.netty.channel.EventLoopGroup
+import io.netty.channel.nio.NioEventLoopGroup
 import io.netty.channel.socket.DatagramPacket
 import io.netty.channel.socket.nio.NioDatagramChannel
 import io.netty.util.internal.SocketUtils
-import kotlinx.coroutines.CoroutineDispatcher
-import ru.stech.BotClient
-import ru.stech.sip.cache.SipSessionCache
-import javax.sip.message.MessageFactory
+import kotlinx.coroutines.*
+import kotlinx.coroutines.channels.Channel
+import ru.stech.sip.Factories
+import ru.stech.sip.SipRequestBuilder
+import ru.stech.sip.cache.SipConnectionCache
+import ru.stech.sip.cache.SipConnectionCacheImpl
+import ru.stech.util.*
+import java.util.*
+import io.netty.channel.Channel as NettyChannel
 
 class SipClient(
     val serverHost: String,
     val serverPort: Int,
     val sipListenPort: Int,
-    private val dispatcher: CoroutineDispatcher,
-    private var workerGroup: EventLoopGroup,
-    private val messageFactory: MessageFactory,
-    private val botClient: BotClient,
-    private val sessionCache: SipSessionCache
+    val sipId: String,
+    val password: String,
+    private val registerResponseChannel: Channel<SIPResponse> = Channel(0),
+    private val workerGroup: EventLoopGroup = NioEventLoopGroup(1),
+    private val sipTimeoutMillis: Long = 60000
 ) {
-    private var senderChannel: Channel? = null
+    companion object {
+        private const val LOCALHOST = "127.0.0.1"
+        private const val REGISTER_DELAY = 20L
+    }
+    private var registered = false
+    private lateinit var senderChannel: NettyChannel
+    private val sipClientIsStarted = Channel<Boolean>(0)
+    private val connectionCache: SipConnectionCache = SipConnectionCacheImpl()
 
-    fun start() {
+    suspend fun start() {
+        //create netty channel
         val bootstrap = Bootstrap()
             .group(workerGroup)
             .channel(NioDatagramChannel::class.java)
             .handler(object : ChannelInitializer<NioDatagramChannel>() {
-                @Throws(Exception::class)
                 override fun initChannel(ch: NioDatagramChannel) {
                     val pipeline = ch.pipeline()
                     pipeline.addLast(SipClientInboundHandler(
-                        sessionCache = sessionCache,
-                        coroutineDispatcher = dispatcher,
-                        messageFactory = messageFactory,
-                        botClient = botClient
+                        sipClient = this@SipClient,
+                        sipConnectionCache = connectionCache,
                     ))
                 }
             })
         senderChannel = bootstrap.bind(sipListenPort).syncUninterruptibly().channel()
+        //sip client initialization and registration
+        CoroutineScope(Dispatchers.Default).launch {
+            var cSeq = 1L
+            val registerBranch = "z9hG4bK${UUID.randomUUID()}"
+            val registerCallId = UUID.randomUUID().toString()
+            val cnonce = UUID.randomUUID().toString()
+            var registerSipRequestBuilder: SipRequestBuilder
+            do {
+                registerSipRequestBuilder = SipRequestBuilder(
+                    RequestLine(
+                        GenericURI("sip:${serverPort};transport=$TRANSPORT"),
+                        SIPRequest.REGISTER
+                    )
+                )
+                registerSipRequestBuilder.headers[SIPHeader.VIA] = Factories.headerFactory.createViaHeader(
+                    LOCALHOST,
+                    sipListenPort,
+                    TRANSPORT,
+                    registerBranch
+                )
+                registerSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] = Factories.headerFactory.createMaxForwardsHeader(
+                    MAX_FORWARDS
+                )
+
+                val contactSipURI = Factories.addressFactory.createSipURI(sipId, LOCALHOST)
+                contactSipURI.port = sipListenPort
+                contactSipURI.transportParam = TRANSPORT
+                registerSipRequestBuilder.headers[SIPHeader.CONTACT] = Factories.headerFactory.createContactHeader(
+                    Factories.addressFactory.createAddress(contactSipURI)
+                )
+
+                val toSipURI = Factories.addressFactory.createSipURI(sipId, serverHost)
+                toSipURI.transportParam = TRANSPORT
+                registerSipRequestBuilder.headers[SIPHeader.TO] =
+                    Factories.headerFactory.createToHeader(Factories.addressFactory.createAddress(toSipURI), null)
+
+                val fromTag = randomString(8)
+                val fromSipURI = Factories.addressFactory.createSipURI(sipId, serverHost)
+                fromSipURI.transportParam = TRANSPORT
+                registerSipRequestBuilder.headers[SIPHeader.FROM] = Factories.headerFactory.createFromHeader(
+                    Factories.addressFactory.createAddress(fromSipURI), fromTag)
+
+                registerSipRequestBuilder.headers[SIPHeader.CALL_ID] = Factories.headerFactory.createCallIdHeader(registerCallId)
+                registerSipRequestBuilder.headers[SIPHeader.CSEQ] = Factories.headerFactory.createCSeqHeader(cSeq++, SIPRequest.REGISTER)
+                registerSipRequestBuilder.headers[SIPHeader.EXPIRES] = Factories.headerFactory.createExpiresHeader(EXPIRES)
+                registerSipRequestBuilder.headers[SIPHeader.USER_AGENT] = Factories.headerFactory.createUserAgentHeader(listOf(LIBNAME))
+                registerSipRequestBuilder.headers[SIPHeader.CONTENT_LENGTH] = Factories.headerFactory.createContentLengthHeader(0)
+                send(registerSipRequestBuilder.toString().toByteArray())
+                var registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
+                    registerResponseChannel.receive()
+                } ?: throw SipTimeoutException()
+
+                if (registerResponse.statusLine.statusCode == 401) {
+                    val registerWWWAuthenticateResponse = registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
+                    registerSipRequestBuilder.headers[SIPHeader.CSEQ] = Factories.headerFactory.createCSeqHeader(cSeq++, "REGISTER")
+                    val authenticationHeader = Factories.headerFactory.createAuthorizationHeader("Digest")
+                    authenticationHeader.username = sipId
+                    authenticationHeader.realm = registerWWWAuthenticateResponse.realm
+                    authenticationHeader.nonce = registerWWWAuthenticateResponse.nonce
+                    authenticationHeader.uri = Factories.addressFactory.createURI("sip:${serverHost};transport=udp")
+                    authenticationHeader.response = getResponseHash(
+                        user = sipId,
+                        realm = registerWWWAuthenticateResponse.realm,
+                        password = password,
+                        method = SIPRequest.REGISTER,
+                        serverIp = serverHost,
+                        nonce = registerWWWAuthenticateResponse.nonce,
+                        nc = "00000001",
+                        cnonce = cnonce,
+                        qop = registerWWWAuthenticateResponse.qop
+                    )
+                    authenticationHeader.cNonce = cnonce
+                    authenticationHeader.nonceCount = 1
+                    authenticationHeader.qop = registerWWWAuthenticateResponse.qop
+                    if (registerWWWAuthenticateResponse.algorithm != null)
+                        authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
+                    if (registerWWWAuthenticateResponse.opaque != null)
+                        authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
+                    registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
+                    send(registerSipRequestBuilder.toString().toByteArray())
+                    registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
+                        registerResponseChannel.receive()
+                    } ?: throw SipTimeoutException()
+                }
+                if (registerResponse.statusLine.statusCode == 200) {
+                    if (!sipClientIsStarted.isClosedForSend) {
+                        sipClientIsStarted.send(true)
+                    }
+                    registered = true
+                    sipClientIsStarted.close()
+                } else {
+                    if (!sipClientIsStarted.isClosedForSend) {
+                        sipClientIsStarted.send(false)
+                    }
+                    sipClientIsStarted.close()
+                }
+                delay(REGISTER_DELAY * 1000L)
+            } while (registered)
+            //unregister bot client
+            val expiresContactHeader = Factories.headerFactory.createContactHeader(
+                Factories.addressFactory.createAddress(
+                    Factories.addressFactory.createSipURI(sipId, LOCALHOST)
+                )
+            )?: throw SipTimeoutException()
+            expiresContactHeader.expires = 0
+            registerSipRequestBuilder.headers[SIPHeader.CSEQ] = Factories.headerFactory.createCSeqHeader(cSeq++, SIPRequest.REGISTER)
+            registerSipRequestBuilder.headers[SIPHeader.CONTACT] = expiresContactHeader
+            send(registerSipRequestBuilder.toString().toByteArray())
+            var unregisterResponse = withTimeoutOrNull(sipTimeoutMillis) {
+                registerResponseChannel.receive()
+            } ?: throw SipTimeoutException()
+            if (unregisterResponse.statusLine.statusCode == 401) {
+                val unregisterWWWAuthenticateResponse = unregisterResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
+                val authenticationHeader = Factories.headerFactory.createAuthorizationHeader("Digest")
+                authenticationHeader.username = sipId
+                authenticationHeader.realm = unregisterWWWAuthenticateResponse.realm
+                authenticationHeader.nonce = unregisterWWWAuthenticateResponse.nonce
+                authenticationHeader.uri = Factories.addressFactory.createURI("sip:${serverHost};transport=udp")
+                authenticationHeader.response = getResponseHash(
+                    user = sipId,
+                    realm = unregisterWWWAuthenticateResponse.realm,
+                    password = password,
+                    method = SIPRequest.REGISTER,
+                    serverIp = serverHost,
+                    nonce = unregisterWWWAuthenticateResponse.nonce,
+                    nc = "00000002",
+                    cnonce = cnonce,
+                    qop = unregisterWWWAuthenticateResponse.qop
+                )
+                authenticationHeader.cNonce = cnonce
+                authenticationHeader.nonceCount = 2
+                authenticationHeader.qop = unregisterWWWAuthenticateResponse.qop
+                if (unregisterWWWAuthenticateResponse.algorithm != null)
+                    authenticationHeader.algorithm = unregisterWWWAuthenticateResponse.algorithm
+                if (unregisterWWWAuthenticateResponse.opaque != null)
+                    authenticationHeader.opaque = unregisterWWWAuthenticateResponse.opaque
+                registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
+                send(registerSipRequestBuilder.toString().toByteArray())
+                unregisterResponse = withTimeoutOrNull(sipTimeoutMillis) {
+                    registerResponseChannel.receive()
+                } ?: throw SipTimeoutException()
+            }
+            senderChannel.close()
+            senderChannel.closeFuture().syncUninterruptibly()
+        }
     }
 
     fun stop() {
-        senderChannel?.close()
-        senderChannel?.closeFuture()?.syncUninterruptibly()
+        registered = false
     }
 
     fun send(data: ByteArray) {
-        senderChannel?.writeAndFlush(DatagramPacket(Unpooled.copiedBuffer(data),
+        senderChannel.writeAndFlush(DatagramPacket(Unpooled.copiedBuffer(data),
             SocketUtils.socketAddress(serverHost, serverPort)
-        ))?.syncUninterruptibly()
+        )).syncUninterruptibly()
+    }
+
+    suspend fun optionsRequestEvent(request: SIPRequest) {
+        val response = request.createResponse(200)
+        response.setHeader(Factories.headerFactory.createAllowHeader("PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS"))
+        response.setHeader(Factories.headerFactory.createSupportedHeader("replaces, norefersub, extended-refer, timer, outbound, path, X-cisco-serviceuri"))
+        send(response.toString().toByteArray())
+    }
+
+    suspend fun registerResponseEvent(response: SIPResponse) {
+        registerResponseChannel.send(response)
     }
 
 }

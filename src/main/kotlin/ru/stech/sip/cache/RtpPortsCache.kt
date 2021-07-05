@@ -1,6 +1,5 @@
 package ru.stech.sip.cache
 
-import ru.stech.sip.exceptions.NoFreeRtpPortException
 import java.util.concurrent.ConcurrentLinkedQueue
 
 class RtpPortsCache(private val diapason: Pair<Int, Int>) {

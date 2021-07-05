@@ -6,23 +6,19 @@ import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
-import ru.stech.BotClient
-import ru.stech.sip.cache.SipSessionCache
-import ru.stech.sip.cache.SipSessionCacheImpl
-import javax.sip.message.MessageFactory
+import ru.stech.sip.Factories
+import ru.stech.sip.cache.SipConnectionCache
 
-class SipClientInboundHandler(private val sessionCache: SipSessionCache = SipSessionCacheImpl(),
-                              private val coroutineDispatcher: CoroutineDispatcher,
-                              private val messageFactory: MessageFactory,
-                              private val botClient: BotClient
+class SipClientInboundHandler(
+    private val sipClient: SipClient,
+    private val sipConnectionCache: SipConnectionCache
 ): ChannelInboundHandlerAdapter() {
 
-    @Throws(Exception::class)
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
-        CoroutineScope(coroutineDispatcher).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             val inBuffer = msg as DatagramPacket
             try {
                 val buf = inBuffer.content()
@@ -30,9 +26,9 @@ class SipClientInboundHandler(private val sessionCache: SipSessionCache = SipSes
                 buf.readBytes(bytes)
                 val body = String(bytes)
                 if (isResponse(body)) {
-                    processResponse(messageFactory.createResponse(body) as SIPResponse)
+                    processResponse(Factories.messageFactory.createResponse(body) as SIPResponse)
                 } else {
-                    processRequest(messageFactory.createRequest(body) as SIPRequest)
+                    processRequest(Factories.messageFactory.createRequest(body) as SIPRequest)
                 }
             } catch (e: Exception) {
                 throw e
@@ -47,34 +43,35 @@ class SipClientInboundHandler(private val sessionCache: SipSessionCache = SipSes
     }
 
     private suspend fun processRequest(request: SIPRequest) {
+        val sipId = (request.fromHeader.address as AddressImpl).userAtHostPort
+        val sipConnection = sipConnectionCache[sipId]
         when (request.requestLine.method) {
             SIPRequest.OPTIONS -> {
-                botClient.optionsRequestEvent(request)
+                sipClient.optionsRequestEvent(request)
             }
             SIPRequest.BYE -> {
-                val session = sessionCache.get((request.fromHeader.address as AddressImpl).userAtHostPort)
-                session?.byeRequestEvent(request)
+                sipConnection.byeRequestEvent(request)
             }
             SIPRequest.INVITE ->{
-                val session = sessionCache.get((request.fromHeader.address as AddressImpl).userAtHostPort)
-                session?.inviteRequestEvent(request)
+                sipConnection.inviteRequestEvent(request)
             }
             else -> throw IllegalArgumentException()
         }
     }
 
     private suspend fun processResponse(response: SIPResponse) {
+        val sipId = (response.fromHeader.address as AddressImpl).userAtHostPort
         when (response.cSeqHeader.method) {
             SIPRequest.REGISTER -> {
-                botClient.registerResponseEvent(response)
+                sipClient.registerResponseEvent(response)
             }
             SIPRequest.INVITE -> {
-                val session = sessionCache.get((response.toHeader.address as AddressImpl).userAtHostPort)
-                session?.inviteResponseEvent(response)
+                val sipConnection = sipConnectionCache[sipId]
+                sipConnection.inviteResponseEvent(response)
             }
             SIPRequest.BYE -> {
-                val session = sessionCache.get((response.toHeader.address as AddressImpl).userAtHostPort)
-                session?.byeResponseEvent(response)
+                val sipConnection = sipConnectionCache[sipId]
+                sipConnection.byeResponseEvent(response)
             }
             else -> throw IllegalArgumentException()
         }

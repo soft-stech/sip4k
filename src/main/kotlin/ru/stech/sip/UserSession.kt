@@ -21,9 +21,8 @@ import ru.stech.BotProperties
 import ru.stech.rtp.RtpSession
 import ru.stech.sdp.parseToSdpBody
 import ru.stech.sip.cache.RtpPortsCache
-import ru.stech.sip.cache.SipSessionCache
+import ru.stech.sip.cache.SipConnectionCache
 import ru.stech.sip.client.SipClient
-import ru.stech.sip.exceptions.SipTimeoutException
 import ru.stech.util.MAX_FORWARDS
 import ru.stech.util.TRANSPORT
 import ru.stech.util.getResponseHash
@@ -40,14 +39,13 @@ class UserSession(private val to: String,
                   private val headerFactory: HeaderFactory,
                   private val sipClient: SipClient,
                   private val botClient: BotClient,
-                  private val sessionCache: SipSessionCache,
+                  private val connectionCache: SipConnectionCache,
                   private val rtpPortsCache: RtpPortsCache,
                   private val rtpNioEventLoopGroup: NioEventLoopGroup,
                   private val rtpClientCoroutineDispatcher: CoroutineDispatcher,
                   private val sipTimeout: Long = 60000
 ) {
     companion object {
-        private val logger = KotlinLogging.logger {}
         private const val SIP_TIMEOUT = "Sip timeout"
     }
 
