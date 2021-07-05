@@ -10,15 +10,8 @@ const val LIBNAME = "Sip4k"
 const val TRANSPORT = "udp"
 const val MAX_FORWARDS = 70
 const val EXPIRES = 30
-
-fun findIp(): String {
-    for (addr in NetworkInterface.getByName("vpn0").inetAddresses) {
-        if (addr is Inet4Address) {
-            return addr.hostAddress ?: ""
-        }
-    }
-    return ""
-}
+const val LOCALHOST = "127.0.0.1"
+const val TIMEOUT_MESSAGE = "Sip timeout exception"
 
 fun md5(input: String): String {
     val md = MessageDigest.getInstance("MD5")

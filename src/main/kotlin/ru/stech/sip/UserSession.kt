@@ -15,14 +15,14 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
-import mu.KotlinLogging
 import ru.stech.BotClient
 import ru.stech.BotProperties
-import ru.stech.rtp.RtpSession
+import ru.stech.rtp.RtpConnection
 import ru.stech.sdp.parseToSdpBody
-import ru.stech.sip.cache.RtpPortsCache
+import ru.stech.rtp.RtpPortsCache
 import ru.stech.sip.cache.SipConnectionCache
 import ru.stech.sip.client.SipClient
+import ru.stech.sip.exceptions.SipException
 import ru.stech.util.MAX_FORWARDS
 import ru.stech.util.TRANSPORT
 import ru.stech.util.getResponseHash
@@ -38,7 +38,6 @@ class UserSession(private val to: String,
                   private val addressFactory: AddressFactory,
                   private val headerFactory: HeaderFactory,
                   private val sipClient: SipClient,
-                  private val botClient: BotClient,
                   private val connectionCache: SipConnectionCache,
                   private val rtpPortsCache: RtpPortsCache,
                   private val rtpNioEventLoopGroup: NioEventLoopGroup,
@@ -55,13 +54,12 @@ class UserSession(private val to: String,
     private val inviteResponseChannel = Channel<SIPResponse>(0)
     private val outputAudioChannel = Channel<ByteArray>(3000)
     private val localRtpPort = rtpPortsCache.getFreePort()
-    private val rtpSession = RtpSession(
-        user = to,
-        listenPort = localRtpPort,
-        botClient = botClient,
+    private val rtpSession = RtpConnection(
+        to = to,
+        rtpLocalPort = localRtpPort,
+        sipClient = sipClient,
         rtpPortsCache = rtpPortsCache,
-        rtpNioEventLoopGroup = rtpNioEventLoopGroup,
-        rtpClientCoroutineDispatcher = rtpClientCoroutineDispatcher
+        rtpNioEventLoopGroup = rtpNioEventLoopGroup
     )
     //jobs in this session
     private val sendRtpToAbonentJob = CoroutineScope(rtpClientCoroutineDispatcher).launch {
@@ -131,7 +129,7 @@ class UserSession(private val to: String,
         sipClient.send(inviteSipRequestBuilder.toString().toByteArray())
         var inviteResponse = withTimeoutOrNull(sipTimeout) {
             receiveFinalInvite()
-        } ?: throw SipTimeoutException(SIP_TIMEOUT)
+        } ?: throw SipException(SIP_TIMEOUT)
         toTag = inviteResponse.toTag
         ack(inviteBranch, "${to}@${botProperties.serverHost}", 1L)
         if (inviteResponse.statusLine.statusCode == 401) {
@@ -171,7 +169,7 @@ class UserSession(private val to: String,
             sipClient.send(inviteSipRequestBuilder.toString().toByteArray())
             inviteResponse = withTimeoutOrNull(sipTimeout) {
                 receiveFinalInvite()
-            } ?: throw SipTimeoutException(SIP_TIMEOUT)
+            } ?: throw SipException(SIP_TIMEOUT)
             toTag = inviteResponse.toTag
 
             if(inviteResponse.statusLine.statusCode == 200){
@@ -181,13 +179,11 @@ class UserSession(private val to: String,
 
         }
         return if (inviteResponse.statusLine.statusCode == 200) {
-            logger.trace { "Session is active" }
             val sdp = inviteResponse.messageContent.parseToSdpBody()
             rtpSession.remotePort = sdp?.remoteRdpPort
             rtpSession.remoteHost = sdp?.remoteRdpHost
             true
         } else {
-            logger.trace { "Session is not active" }
             false
         }
     }
@@ -245,7 +241,6 @@ class UserSession(private val to: String,
         byeRequestIsAlreadyReceived = true
     }
 
-
     private val byeResponseChannel = Channel<SIPResponse>(0)
     suspend fun byeResponseEvent(response: SIPResponse) {
         byeResponseChannel.send(response)
@@ -286,7 +281,7 @@ class UserSession(private val to: String,
             sipClient.send(byeSipRequestBuilder.toString().toByteArray())
             val byeResponse = withTimeoutOrNull(sipTimeout) {
                 byeResponseChannel.receive()
-            } ?: throw SipTimeoutException(SIP_TIMEOUT)
+            } ?: throw SipException(SIP_TIMEOUT)
         }
         inviteResponseChannel.close()
         outputAudioChannel.close()

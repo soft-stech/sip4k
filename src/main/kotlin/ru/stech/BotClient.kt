@@ -8,6 +8,7 @@ import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.nio.NioEventLoopGroup
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
@@ -15,7 +16,7 @@ import kotlinx.coroutines.withTimeoutOrNull
 import ru.stech.g711.compressToG711
 import ru.stech.sip.SipRequestBuilder
 import ru.stech.sip.UserSession
-import ru.stech.sip.cache.RtpPortsCache
+import ru.stech.rtp.RtpPortsCache
 import ru.stech.sip.cache.SipConnectionCacheImpl
 import ru.stech.sip.client.SipClient
 import ru.stech.sip.exceptions.SipException
@@ -60,7 +61,7 @@ class BotClient(
                 workerGroup = sipNioEventLoopGroup
             )
             sipClient.start()
-            CoroutineScope(botCoroutineDispatcher).launch {
+            CoroutineScope(Dispatchers.Default).launch {
                 try {
                     startRegistrationByPeriod()
                 } catch (e: Exception) {

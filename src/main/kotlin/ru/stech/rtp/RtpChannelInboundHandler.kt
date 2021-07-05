@@ -3,33 +3,29 @@ package ru.stech.rtp
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import ru.stech.BotClient
 import ru.stech.g711.decompressFromG711
-import ru.stech.quiet.QuietAnalizer
-import ru.stech.sip.cache.RtpPortsCache
+import ru.stech.sip.client.SipClient
 
-class RtpChannelInboundHandler(val user: String,
+class RtpChannelInboundHandler(val to: String,
                                val rtpLocalPort: Int,
-                               val botClient: BotClient,
-                               private val qa: QuietAnalizer,
-                               private val rtpPortsCache: RtpPortsCache,
-                               private val rtpClientCoroutineDispatcher: CoroutineDispatcher
+                               val sipClient: SipClient,
+                               private val rtpPortsCache: RtpPortsCache
 ): ChannelInboundHandlerAdapter() {
     companion object {
         private const val RTP_CHANNEL_CAPACITY = 3000
     }
 
     private var lastTimeStamp = Integer.MIN_VALUE
-    private val rtpQueue = Channel<Triple<ByteArray, Boolean, Int>>(RTP_CHANNEL_CAPACITY)
-    private val queueJob = CoroutineScope(rtpClientCoroutineDispatcher).launch {
+    private val rtpQueue = Channel<Pair<ByteArray, Int>>(RTP_CHANNEL_CAPACITY)
+    private val queueJob = CoroutineScope(Dispatchers.Default).launch {
         for (item in rtpQueue) {
-            if (item.third > lastTimeStamp) {
-                botClient.streamEventListener(user, item.first, item.second)
-                lastTimeStamp = item.third
+            if (item.second > lastTimeStamp) {
+                sipClient.streamEventListener(to, item.first)
+                lastTimeStamp = item.second
             }
         }
     }
@@ -39,7 +35,7 @@ class RtpChannelInboundHandler(val user: String,
     }
 
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
-        CoroutineScope(rtpClientCoroutineDispatcher).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             val nioBuffer = (msg as DatagramPacket).content()
             try {
                 val bufLength = nioBuffer.readableBytes()
@@ -47,9 +43,8 @@ class RtpChannelInboundHandler(val user: String,
                 nioBuffer.readBytes(rtpData)
                 val rtpPacket = RtpPacket(rtpData)
                 val g711data = rtpPacket.payload
-                val silence = qa.isQuietAtSegment(g711data)
                 val pcm = decompressFromG711(g711data, true)
-                rtpQueue.send(Triple(pcm, silence, rtpPacket.timeStamp))
+                rtpQueue.send(Pair(pcm, rtpPacket.timeStamp))
             } catch (e: Exception) {
                 throw e
             } finally {
