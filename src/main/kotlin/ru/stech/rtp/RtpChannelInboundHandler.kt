@@ -8,13 +8,13 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import ru.stech.g711.decompressFromG711
-import ru.stech.sip.client.SipClient
 
-class RtpChannelInboundHandler(val to: String,
-                               val rtpLocalPort: Int,
-                               val sipClient: SipClient,
-                               private val rtpPortsCache: RtpPortsCache
-): ChannelInboundHandlerAdapter() {
+class RtpChannelInboundHandler(
+    val to: String,
+    val rtpLocalPort: Int,
+    private val rtpPortsCache: RtpPortsCache,
+    private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit
+) : ChannelInboundHandlerAdapter() {
     companion object {
         private const val RTP_CHANNEL_CAPACITY = 3000
     }
@@ -24,7 +24,7 @@ class RtpChannelInboundHandler(val to: String,
     private val queueJob = CoroutineScope(Dispatchers.Default).launch {
         for (item in rtpQueue) {
             if (item.second > lastTimeStamp) {
-                sipClient.streamEventListener(to, item.first)
+                rtpStreamEvent(to, item.first)
                 lastTimeStamp = item.second
             }
         }

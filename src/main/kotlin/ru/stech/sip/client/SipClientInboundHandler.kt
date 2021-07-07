@@ -15,7 +15,7 @@ import ru.stech.sip.cache.SipConnectionCache
 class SipClientInboundHandler(
     private val sipClient: SipClient,
     private val sipConnectionCache: SipConnectionCache
-): ChannelInboundHandlerAdapter() {
+) : ChannelInboundHandlerAdapter() {
 
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         CoroutineScope(Dispatchers.Default).launch {
@@ -44,15 +44,16 @@ class SipClientInboundHandler(
 
     private suspend fun processRequest(request: SIPRequest) {
         val sipId = (request.fromHeader.address as AddressImpl).userAtHostPort
-        val sipConnection = sipConnectionCache[sipId]
         when (request.requestLine.method) {
             SIPRequest.OPTIONS -> {
                 sipClient.optionsRequestEvent(request)
             }
             SIPRequest.BYE -> {
+                val sipConnection = sipConnectionCache[sipId]
                 sipConnection.byeRequestEvent(request)
             }
-            SIPRequest.INVITE ->{
+            SIPRequest.INVITE -> {
+                val sipConnection = sipConnectionCache[sipId]
                 sipConnection.inviteRequestEvent(request)
             }
             else -> throw IllegalArgumentException()
@@ -60,7 +61,7 @@ class SipClientInboundHandler(
     }
 
     private suspend fun processResponse(response: SIPResponse) {
-        val sipId = (response.fromHeader.address as AddressImpl).userAtHostPort
+        val sipId = (response.toHeader.address as AddressImpl).userAtHostPort
         when (response.cSeqHeader.method) {
             SIPRequest.REGISTER -> {
                 sipClient.registerResponseEvent(response)
