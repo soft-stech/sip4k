@@ -211,6 +211,10 @@ class SipConnection(
         }
     }
 
+    fun sendAudioData(data: ByteArray) {
+        rtpConnection.sendRtpData(data)
+    }
+
     private fun stopRtpStreaming() {
         rtpConnection.disconnect()
     }

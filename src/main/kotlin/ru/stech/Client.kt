@@ -1,5 +1,6 @@
 package ru.stech
 
+import ru.stech.g711.compressToG711
 import ru.stech.sip.client.SipClient
 
 class Client(
@@ -19,6 +20,10 @@ class Client(
         sipTimeoutMillis = sipProperties.sipTimeoutMillis,
         diapason = diapason
     )
+
+    suspend fun sendAudioData(to: String, data: ByteArray) {
+        sipClient.sendAudioData(to, compressToG711(data, true))
+    }
 
     suspend fun start() {
         sipClient.start()

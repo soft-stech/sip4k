@@ -245,6 +245,10 @@ class SipClient(
         ).syncUninterruptibly()
     }
 
+    fun sendAudioData(to: String, data: ByteArray) {
+        connectionCache["${to}@${serverHost}"].sendAudioData(data)
+    }
+
     suspend fun optionsRequestEvent(request: SIPRequest) {
         val response = request.createResponse(200)
         response.setHeader(Factories.headerFactory.createAllowHeader("PRACK, INVITE, ACK, BYE, CANCEL, UPDATE, INFO, SUBSCRIBE, NOTIFY, REFER, MESSAGE, OPTIONS"))
