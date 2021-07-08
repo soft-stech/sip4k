@@ -3,40 +3,39 @@ package ru.stech.rtp
 import io.netty.channel.ChannelHandlerContext
 import io.netty.channel.ChannelInboundHandlerAdapter
 import io.netty.channel.socket.DatagramPacket
-import kotlinx.coroutines.CoroutineDispatcher
 import kotlinx.coroutines.CoroutineScope
+import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
-import ru.stech.BotClient
 import ru.stech.g711.decompressFromG711
-import ru.stech.quiet.QuietAnalizer
-import ru.stech.sip.cache.RtpPortsCache
 
-class RtpChannelInboundHandler(val user: String,
-                               val rtpLocalPort: Int,
-                               val botClient: BotClient,
-                               private val qa: QuietAnalizer,
-                               private val rtpPortsCache: RtpPortsCache,
-                               private val rtpClientCoroutineDispatcher: CoroutineDispatcher
-): ChannelInboundHandlerAdapter() {
+class RtpChannelInboundHandler(
+    val to: String,
+    val rtpLocalPort: Int,
+    private val rtpPortsCache: RtpPortsCache,
+    private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit
+) : ChannelInboundHandlerAdapter() {
+    companion object {
+        private const val RTP_CHANNEL_CAPACITY = 3000
+    }
+
     private var lastTimeStamp = Integer.MIN_VALUE
-    private val rtpQueue = Channel<Triple<ByteArray, Boolean, Int>>(3000)
-    private val queueJob = CoroutineScope(rtpClientCoroutineDispatcher).launch {
+    private val rtpQueue = Channel<Pair<ByteArray, Int>>(RTP_CHANNEL_CAPACITY)
+    private val queueJob = CoroutineScope(Dispatchers.Default).launch {
         for (item in rtpQueue) {
-            if (item.third > lastTimeStamp) {
-                botClient.streamEventListener(user, item.first, item.second)
-                lastTimeStamp = item.third
+            if (item.second > lastTimeStamp) {
+                rtpStreamEvent(to, item.first)
+                lastTimeStamp = item.second
             }
         }
     }
 
-    suspend fun stop() {
+    fun stop() {
         rtpQueue.close()
     }
 
-    @Throws(Exception::class)
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
-        CoroutineScope(rtpClientCoroutineDispatcher).launch {
+        CoroutineScope(Dispatchers.Default).launch {
             val nioBuffer = (msg as DatagramPacket).content()
             try {
                 val bufLength = nioBuffer.readableBytes()
@@ -44,9 +43,8 @@ class RtpChannelInboundHandler(val user: String,
                 nioBuffer.readBytes(rtpData)
                 val rtpPacket = RtpPacket(rtpData)
                 val g711data = rtpPacket.payload
-                val silence = qa.isQuietAtSegment(g711data)
                 val pcm = decompressFromG711(g711data, true)
-                rtpQueue.send(Triple(pcm, silence, rtpPacket.timeStamp))
+                rtpQueue.send(Pair(pcm, rtpPacket.timeStamp))
             } catch (e: Exception) {
                 throw e
             } finally {
@@ -55,7 +53,6 @@ class RtpChannelInboundHandler(val user: String,
         }
     }
 
-    @Throws(Exception::class)
     override fun channelInactive(ctx: ChannelHandlerContext) {
         rtpPortsCache.returnPort(rtpLocalPort)
     }

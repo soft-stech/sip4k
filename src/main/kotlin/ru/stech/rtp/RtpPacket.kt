@@ -3,11 +3,8 @@ package ru.stech.rtp
 import java.util.*
 
 class RtpPacket {
-
     var rawData: ByteArray
-
     constructor() : this(ByteArray(172))
-
     constructor(rawData: ByteArray) {
         this.rawData = rawData
     }
@@ -73,7 +70,7 @@ class RtpPacket {
         set(value) = setIntToBytes(value, 8)
 
     var payload
-        get() =  Arrays.copyOfRange(rawData, PAYLOAD_OFFSET, rawData.size)
+        get() = Arrays.copyOfRange(rawData, PAYLOAD_OFFSET, rawData.size)
         set(value) {
             for (i in 0 until value.size) {
                 rawData[i + PAYLOAD_OFFSET] = value[i]
