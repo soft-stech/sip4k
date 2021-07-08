@@ -11,11 +11,15 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import ru.stech.sip.Factories
 import ru.stech.sip.cache.SipConnectionCache
+import javax.sip.SipException
 
 class SipClientInboundHandler(
     private val sipClient: SipClient,
     private val sipConnectionCache: SipConnectionCache
 ) : ChannelInboundHandlerAdapter() {
+    companion object {
+        private const val UNKNOWN_SIP_METHOD = "Unknown sip method name"
+    }
 
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         CoroutineScope(Dispatchers.Default).launch {
@@ -56,7 +60,7 @@ class SipClientInboundHandler(
                 val sipConnection = sipConnectionCache[sipId]
                 sipConnection.inviteRequestEvent(request)
             }
-            else -> throw IllegalArgumentException()
+            else -> throw SipException(UNKNOWN_SIP_METHOD)
         }
     }
 
@@ -74,7 +78,7 @@ class SipClientInboundHandler(
                 val sipConnection = sipConnectionCache[sipId]
                 sipConnection.byeResponseEvent(response)
             }
-            else -> throw IllegalArgumentException()
+            else -> throw SipException(UNKNOWN_SIP_METHOD)
         }
     }
 
