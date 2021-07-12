@@ -42,7 +42,7 @@ class SipClient(
     val sipId: String,
     val password: String,
     val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
-    val rtpDisconnectEvent: (user: String) -> Unit,
+    val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
     private val diapason: Pair<Int, Int>,
     private val sipTimeoutMillis: Long
 ) {

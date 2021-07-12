@@ -6,7 +6,7 @@ import ru.stech.sip.client.SipClient
 class Client(
     private val sipProperties: SipProperties,
     private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
-    private val rtpDisconnectEvent: (user: String) -> Unit,
+    private val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
     private val diapason: Pair<Int, Int> = Pair(40000, 65000)
 ) {
     private val sipClient = SipClient(

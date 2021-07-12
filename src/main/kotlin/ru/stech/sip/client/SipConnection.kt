@@ -35,7 +35,7 @@ class SipConnection(
     private val rtpPortsCache: RtpPortsCache,
     private val sipTimeoutMillis: Long,
     val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
-    val rtpDisconnectEvent: (user: String) -> Unit
+    val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit
 ) {
     companion object {
         private const val BYE_RESPONSE_ERROR_MESSAGE = "Error in BYE response"
@@ -65,7 +65,7 @@ class SipConnection(
         } catch (e: Exception) {
             throw e
         } finally {
-            removeFromCache()
+            removeFromCache(byAbonent = true)
         }
     }
 
@@ -219,8 +219,8 @@ class SipConnection(
         rtpConnection.disconnect()
     }
 
-    private fun removeFromCache() {
-        rtpDisconnectEvent(to)
+    private fun removeFromCache(byAbonent: Boolean = false) {
+        rtpDisconnectEvent(to, byAbonent)
         rtpPortsCache.returnPort(rtpLocalPort)
         sipConnectionCache.remove("${to}@${sipClient.serverHost}")
     }
