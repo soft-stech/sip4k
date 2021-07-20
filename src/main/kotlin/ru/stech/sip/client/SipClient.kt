@@ -275,7 +275,7 @@ class SipClient(
     }
 
     suspend fun stopCall(to: String) {
-        connectionCache[to].stopCall()
+        connectionCache["${to}@${serverHost}"].stopCall()
     }
 
 }
