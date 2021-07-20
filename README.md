@@ -1,6 +1,6 @@
 # sip4k
 
-Lock-free coroutine-based implementation sip and rtp protocol
+Lock-free coroutine-based implementation sip and rtp protocol. Hosted on jitpack repository https://jitpack.io/#soft-stech/sip4k.
 
 Supported features:
 
