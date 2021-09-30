@@ -62,7 +62,7 @@ class SipClientInboundHandler(
             }
             SIPRequest.ACK -> {
                 val sipConnection = sipConnectionCache[sipId]
-                sipConnection.ackResponseEvent()
+                sipConnection.ackRequestEvent(request)
             }
             else -> throw SipException(UNKNOWN_SIP_METHOD)
         }
