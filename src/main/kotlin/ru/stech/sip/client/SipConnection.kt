@@ -58,6 +58,10 @@ class SipConnection(
         rtpStreamEvent = rtpStreamEvent
     )
 
+    fun ackResponseEvent() {
+        sipClient.send(SIPRequest().createResponse(200).toString().toByteArray())
+    }
+
     fun byeRequestEvent(request: SIPRequest) {
         try {
             stopRtpStreaming()
