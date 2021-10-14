@@ -43,7 +43,7 @@ class SipClient(
     val password: String,
     val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
     val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
-    private val diapason: Pair<Int, Int>,
+    private val portsRange: Pair<Int, Int>,
     private val sipTimeoutMillis: Long
 ) {
     companion object {
@@ -56,7 +56,7 @@ class SipClient(
     private val sipClientIsStarted = Channel<Unit>(1)
     private lateinit var senderChannel: NettyChannel
     private val connectionCache = SipConnectionCacheImpl()
-    private val rtpPortsCache = RtpPortsCache(diapason)
+    private val rtpPortsCache = RtpPortsCache(portsRange)
     private val registerResponseChannel: Channel<SIPResponse> = Channel(0)
 
     suspend fun start() {

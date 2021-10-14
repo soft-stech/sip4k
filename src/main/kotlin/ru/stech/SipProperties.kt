@@ -6,6 +6,6 @@ data class SipProperties(
     val clientSipPort: Int,
     val login: String,
     val password: String,
-    val diapason: Pair<Int, Int> = Pair(40000, 65000),
+    val portsRange: Pair<Int, Int> = Pair(40000, 65000),
     val sipTimeoutMillis: Long = 60000
 )
