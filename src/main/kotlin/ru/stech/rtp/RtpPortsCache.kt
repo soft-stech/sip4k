@@ -3,7 +3,7 @@ package ru.stech.rtp
 import java.util.concurrent.ConcurrentLinkedQueue
 import javax.sip.SipException
 
-class RtpPortsCache(private val diapason: Pair<Int, Int>) {
+class RtpPortsCache(private val portsRange: Pair<Int, Int>) {
     companion object {
         private const val NO_FREE_RTP_PORT = "No free rtp port"
     }
@@ -11,7 +11,7 @@ class RtpPortsCache(private val diapason: Pair<Int, Int>) {
     private val portsQueue = ConcurrentLinkedQueue<Int>()
 
     init {
-        for (p in diapason.first..diapason.second step 2) {
+        for (p in portsRange.first..portsRange.second step 2) {
             returnPort(p)
         }
     }

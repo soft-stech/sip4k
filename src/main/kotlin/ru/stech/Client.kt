@@ -7,7 +7,7 @@ class Client(
     private val sipProperties: SipProperties,
     private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
     private val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
-    private val diapason: Pair<Int, Int> = Pair(40000, 65000)
+    private val portsRange: Pair<Int, Int> = Pair(40000, 65000)
 ) {
     private val sipClient = SipClient(
         sipId = sipProperties.login,
@@ -18,7 +18,7 @@ class Client(
         rtpStreamEvent = rtpStreamEvent,
         rtpDisconnectEvent = rtpDisconnectEvent,
         sipTimeoutMillis = sipProperties.sipTimeoutMillis,
-        diapason = diapason
+        portsRange = portsRange
     )
 
     suspend fun sendAudioData(to: String, data: ByteArray) {
