@@ -1,6 +1,7 @@
 package ru.stech.sip.client
 
 import gov.nist.javax.sip.address.AddressImpl
+import gov.nist.javax.sip.header.From
 import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse
 import io.netty.channel.ChannelHandlerContext
@@ -53,16 +54,32 @@ class SipClientInboundHandler(
                 sipClient.optionsRequestEvent(request)
             }
             SIPRequest.BYE -> {
-                val sipConnection = sipConnectionCache[sipId]
-                sipConnection.byeRequestEvent(request)
+                if (sipConnectionCache.isExist(sipId)) {
+                    val sipConnection = sipConnectionCache[sipId]
+                    sipConnection.byeRequestEvent(request)
+                } else {
+                    sipClient.send(request.createResponse(200).toString().toByteArray())
+                }
             }
             SIPRequest.INVITE -> {
-                val sipConnection = sipConnectionCache[sipId]
-                sipConnection.inviteRequestEvent(request)
+                if (!sipConnectionCache.isExist(sipId)) {
+                    val fromSipId = ((request.fromHeader as From).address as AddressImpl).displayName!!.toString()
+                    val sipConnection = sipClient.initIncomingCallConnection(fromSipId)
+
+                    sipConnection.incomingCallRequestEvent(request)
+                    sipClient.incomingCallEvent(fromSipId)
+                } else {
+                    val sipConnection = sipConnectionCache[sipId]
+                    sipConnection.inviteRequestEvent(request)
+                }
             }
             SIPRequest.ACK -> {
-                val sipConnection = sipConnectionCache[sipId]
-                sipConnection.ackRequestEvent(request)
+                if (!sipConnectionCache.isExist(sipId)) {
+                    val sipConnection = sipConnectionCache[sipId]
+                    sipConnection.ackRequestEvent(request)
+                } else {
+                    sipClient.send(request.createResponse(200).toString().toByteArray())
+                }
             }
             else -> throw SipException(UNKNOWN_SIP_METHOD)
         }

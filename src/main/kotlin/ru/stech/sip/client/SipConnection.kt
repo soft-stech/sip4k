@@ -12,8 +12,10 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.withTimeoutOrNull
 import ru.stech.rtp.RtpConnection
 import ru.stech.rtp.RtpPortsCache
+import ru.stech.sdp.SdpBodyBuilder
 import ru.stech.sdp.parseToSdpBody
 import ru.stech.sip.Factories
+import ru.stech.sip.SipResponseBuilder
 import ru.stech.sip.SipRequestBuilder
 import ru.stech.sip.cache.SipConnectionCache
 import ru.stech.sip.exceptions.SipException
@@ -39,7 +41,7 @@ class SipConnection(
 ) {
     companion object {
         private const val BYE_RESPONSE_ERROR_MESSAGE = "Error in BYE response"
-        private const val SDP_PARSE_ERROR_MESSAGE = "Sdp body cannot be parsed"
+        const val SDP_PARSE_ERROR_MESSAGE = "Sdp body cannot be parsed"
         private const val INVITE_RESPONSE_ERROR_MESSAGE = "Error in INVITE response"
     }
 
@@ -50,8 +52,8 @@ class SipConnection(
     private val byeResponseChannel = Channel<SIPResponse>(0)
     private val inviteResponseChannel = Channel<SIPResponse>(0)
 
-    private var rtpLocalPort: Int = rtpPortsCache.getFreePort()
-    private val rtpConnection = RtpConnection(
+    var rtpLocalPort: Int = rtpPortsCache.getFreePort()
+    val rtpConnection = RtpConnection(
         to = to,
         rtpLocalPort = rtpLocalPort,
         rtpPortsCache = rtpPortsCache,
@@ -73,8 +75,36 @@ class SipConnection(
         }
     }
 
+    private fun sendRingingRequest(request: SIPRequest) {
+        val responseBody = request.createResponse(180)
+        sipClient.send(responseBody.toString().toByteArray())
+    }
+
+    fun incomingCallRequestEvent(request: SIPRequest) {
+        sendRingingRequest(request)
+        val sdpFrom = request.messageContent.parseToSdpBody() ?: throw SipException(
+            SDP_PARSE_ERROR_MESSAGE
+        )
+
+        val sdp = SdpBodyBuilder(
+            sdpFrom.remoteRdpHost,
+            (request.to.address as AddressImpl).host,
+            rtpLocalPort)
+
+        val incomingCallInviteResponse = SipResponseBuilder(
+            statusCode = 200,
+            request = request,
+            sipId = sipClient.sipId,
+            sipListenPort = sipClient.sipListenPort,
+            sdp.toString()
+        )
+        sipClient.send(incomingCallInviteResponse.toString().toByteArray())
+        rtpConnection.connect(sdpFrom.remoteRdpHost, sdpFrom.remoteRdpPort)
+    }
+
     fun inviteRequestEvent(request: SIPRequest) {
-        sipClient.send(request.createResponse(200).toString().toByteArray())
+        val response = request.createResponse(200)
+        sipClient.send((response.toString()).toByteArray())
     }
 
     suspend fun inviteResponseEvent(response: SIPResponse) {

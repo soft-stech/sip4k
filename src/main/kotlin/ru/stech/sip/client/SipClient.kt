@@ -44,6 +44,7 @@ class SipClient(
     val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
     val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
     private val portsRange: Pair<Int, Int>,
+    val incomingCallEvent: (user: String) -> Unit,
     private val sipTimeoutMillis: Long
 ) {
     companion object {
@@ -260,6 +261,20 @@ class SipClient(
         registerResponseChannel.send(response)
     }
 
+    suspend fun initIncomingCallConnection(to: String) : SipConnection{
+        val sipConnection = SipConnection(
+            to = to,
+            sipClient = this,
+            sipConnectionCache = connectionCache,
+            rtpPortsCache = rtpPortsCache,
+            sipTimeoutMillis = sipTimeoutMillis,
+            rtpStreamEvent = rtpStreamEvent,
+            rtpDisconnectEvent = rtpDisconnectEvent
+        )
+        connectionCache.put("${to}@${serverHost}", sipConnection)
+        return sipConnection
+    }
+
     suspend fun startCall(to: String) {
         val sipConnection = SipConnection(
             to = to,
@@ -277,5 +292,4 @@ class SipClient(
     suspend fun stopCall(to: String) {
         connectionCache["${to}@${serverHost}"].stopCall()
     }
-
 }
