@@ -5,6 +5,7 @@ import ru.stech.sip.client.SipClient
 
 class Client(
     private val sipProperties: SipProperties,
+    private var incomingCallEvent:  (user: String) -> Unit,
     private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
     private val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
     private val portsRange: Pair<Int, Int> = Pair(40000, 65000)
@@ -17,6 +18,7 @@ class Client(
         sipListenPort = sipProperties.clientSipPort,
         rtpStreamEvent = rtpStreamEvent,
         rtpDisconnectEvent = rtpDisconnectEvent,
+        incomingCallEvent = incomingCallEvent,
         sipTimeoutMillis = sipProperties.sipTimeoutMillis,
         portsRange = portsRange
     )

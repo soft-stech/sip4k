@@ -15,6 +15,10 @@ class SipConnectionCacheImpl : SipConnectionCache {
         return connections[key] ?: throw SipException(CONNECTION_NOT_FOUND)
     }
 
+    override fun isExist(key: String): Boolean {
+        return connections.containsKey(key)
+    }
+
     override fun put(key: String, connection: SipConnection) {
         connections[key] = connection
     }
