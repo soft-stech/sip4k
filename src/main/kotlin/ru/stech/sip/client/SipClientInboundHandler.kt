@@ -85,7 +85,12 @@ class SipClientInboundHandler(
                     sipClient.send(request.createResponse(200).toString().toByteArray())
                 }
             }
-            else -> throw SipException(UNKNOWN_SIP_METHOD)
+            SIPRequest.CANCEL -> {
+                sipClient.send(request.createResponse(200).toString().toByteArray())
+            }
+            else -> {
+                throw SipException(UNKNOWN_SIP_METHOD)
+            }
         }
     }
 

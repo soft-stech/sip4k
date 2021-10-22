@@ -13,6 +13,7 @@ class SipResponseBuilder(
     val request: SIPRequest,
     val sipId: String,
     val sipListenPort: Int,
+    val fromTag : String,
     val messageBody: String
 ) {
     override fun toString(): String {
@@ -29,6 +30,7 @@ class SipResponseBuilder(
                 Factories.addressFactory.createSipURI(sipId, "${(request.requestLine.uri as SipUri).host}:${sipListenPort}")
             )
         )
+        request.toHeader.tag = fromTag
         headers[SIPHeader.TO] = request.toHeader
         headers[SIPHeader.FROM] = request.fromHeader
         headers[SIPHeader.CALL_ID] = request.callIdHeader
