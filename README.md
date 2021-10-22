@@ -30,6 +30,9 @@ fun main(args: Array<String>) {
       rtpDisconnectEvent = { user ->
         print("disconnect\n") // callback for disconnect event
       }
+      incomingCallEvent = { user -> 
+        print("incoming call from $user") 
+      }
     )
     client.start() // start sip client on local port
     client.startCall("sipAbonent") // start one connection and open rtp stream
@@ -46,4 +49,36 @@ fun main(args: Array<String>) {
   }
   print("stopping!!!")
 }
+```
+
+Incoming call handling
+
+```kotlin
+client = Client(
+           
+            incomingCallEvent = { user ->
+                GlobalScope.launch {
+                    val stream =
+                        FileInputStream("path/to/your16-pcm.file")
+
+                    stream.use {
+                        try {
+                            while (it.available() > 0) {
+                                client.sendAudioData(
+                                    user,
+                                    it.readNBytes(320)
+                                ) //send piece of data in format 16-pcm having 20mc size
+                                delay(20) //do 20mc delay since rtp protocol works only with UDP-header
+
+
+                            }
+                        } catch (ex: Exception) {
+                            throw ex
+                        }
+                    }
+                }
+            },
+           
+)
+
 ```
