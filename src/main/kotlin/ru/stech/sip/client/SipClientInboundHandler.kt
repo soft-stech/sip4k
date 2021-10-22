@@ -10,6 +10,7 @@ import io.netty.channel.socket.DatagramPacket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import ru.stech.sip.Factories
 import ru.stech.sip.cache.SipConnectionCache
 import javax.sip.SipException
@@ -22,6 +23,8 @@ class SipClientInboundHandler(
         private const val UNKNOWN_SIP_METHOD = "Unknown sip method name"
     }
 
+    private val log = LoggerFactory.getLogger(SipClientInboundHandler::class.java)
+
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         CoroutineScope(Dispatchers.Default).launch {
             val inBuffer = msg as DatagramPacket
@@ -30,6 +33,7 @@ class SipClientInboundHandler(
                 val bytes = ByteArray(buf.readableBytes())
                 buf.readBytes(bytes)
                 val body = String(bytes)
+                log.trace("SIP body=${body}")
                 if (isResponse(body)) {
                     processResponse(Factories.messageFactory.createResponse(body) as SIPResponse)
                 } else {
@@ -81,7 +85,12 @@ class SipClientInboundHandler(
                     sipClient.send(request.createResponse(200).toString().toByteArray())
                 }
             }
-            else -> throw SipException(UNKNOWN_SIP_METHOD)
+            SIPRequest.CANCEL -> {
+                sipClient.send(request.createResponse(200).toString().toByteArray())
+            }
+            else -> {
+                throw SipException(UNKNOWN_SIP_METHOD)
+            }
         }
     }
 

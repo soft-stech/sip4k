@@ -1,11 +1,11 @@
 package ru.stech.sip
 
+import gov.nist.javax.sip.address.SipUri
 import gov.nist.javax.sip.header.SIPHeader
 import gov.nist.javax.sip.header.StatusLine
 import gov.nist.javax.sip.message.SIPRequest
 import gov.nist.javax.sip.message.SIPResponse
 import ru.stech.util.LIBNAME
-import ru.stech.util.LOCALHOST
 import javax.sip.header.Header
 
 class SipResponseBuilder(
@@ -13,6 +13,7 @@ class SipResponseBuilder(
     val request: SIPRequest,
     val sipId: String,
     val sipListenPort: Int,
+    val fromTag : String,
     val messageBody: String
 ) {
     override fun toString(): String {
@@ -26,9 +27,10 @@ class SipResponseBuilder(
             request.viaHeaders.first()
         headers[SIPHeader.CONTACT] = Factories.headerFactory.createContactHeader(
             Factories.addressFactory.createAddress(
-                Factories.addressFactory.createSipURI(sipId, "$LOCALHOST:${sipListenPort}")
+                Factories.addressFactory.createSipURI(sipId, "${(request.requestLine.uri as SipUri).host}:${sipListenPort}")
             )
         )
+        request.toHeader.tag = fromTag
         headers[SIPHeader.TO] = request.toHeader
         headers[SIPHeader.FROM] = request.fromHeader
         headers[SIPHeader.CALL_ID] = request.callIdHeader

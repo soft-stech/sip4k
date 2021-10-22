@@ -15,8 +15,8 @@ import ru.stech.rtp.RtpPortsCache
 import ru.stech.sdp.SdpBodyBuilder
 import ru.stech.sdp.parseToSdpBody
 import ru.stech.sip.Factories
-import ru.stech.sip.SipResponseBuilder
 import ru.stech.sip.SipRequestBuilder
+import ru.stech.sip.SipResponseBuilder
 import ru.stech.sip.cache.SipConnectionCache
 import ru.stech.sip.exceptions.SipException
 import ru.stech.util.LIBNAME
@@ -45,9 +45,10 @@ class SipConnection(
         private const val INVITE_RESPONSE_ERROR_MESSAGE = "Error in INVITE response"
     }
 
-    private val callId = UUID.randomUUID().toString()
+    private var callId = UUID.randomUUID().toString()
     private val fromTag = randomString(8)
     private lateinit var toTag: String
+    private var isIncomingCall: Boolean = false
 
     private val byeResponseChannel = Channel<SIPResponse>(0)
     private val inviteResponseChannel = Channel<SIPResponse>(0)
@@ -85,19 +86,23 @@ class SipConnection(
         val sdpFrom = request.messageContent.parseToSdpBody() ?: throw SipException(
             SDP_PARSE_ERROR_MESSAGE
         )
-
         val sdp = SdpBodyBuilder(
             sdpFrom.remoteRdpHost,
             (request.to.address as AddressImpl).host,
-            rtpLocalPort)
+            rtpLocalPort
+        )
 
         val incomingCallInviteResponse = SipResponseBuilder(
             statusCode = 200,
             request = request,
             sipId = sipClient.sipId,
             sipListenPort = sipClient.sipListenPort,
+            fromTag,
             sdp.toString()
         )
+        callId = request.callId.callId
+        toTag = request.fromTag
+        isIncomingCall = true
         sipClient.send(incomingCallInviteResponse.toString().toByteArray())
         rtpConnection.connect(sdpFrom.remoteRdpHost, sdpFrom.remoteRdpPort)
     }
@@ -132,7 +137,6 @@ class SipConnection(
 
         inviteSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] =
             Factories.headerFactory.createMaxForwardsHeader(MAX_FORWARDS)
-
 
         val toSipURI = Factories.addressFactory.createSipURI(to, sipClient.serverHost)
         toSipURI.transportParam = TRANSPORT
@@ -275,17 +279,27 @@ class SipConnection(
                 Factories.addressFactory.createSipURI(sipClient.sipId, LOCALHOST)
             )
         )
-
         val toSipURI = Factories.addressFactory.createSipURI(to, sipClient.serverHost)
         toSipURI.transportParam = TRANSPORT
         byeSipRequestBuilder.headers[SIPHeader.TO] =
             Factories.headerFactory.createToHeader(Factories.addressFactory.createAddress(toSipURI), toTag)
 
-        val fromSipURI = Factories.addressFactory.createSipURI(sipClient.sipId, sipClient.serverHost)
-        fromSipURI.transportParam = TRANSPORT
-        byeSipRequestBuilder.headers[SIPHeader.FROM] = Factories.headerFactory.createFromHeader(
-            Factories.addressFactory.createAddress(fromSipURI), fromTag
-        )
+        if (isIncomingCall) {
+            byeSipRequestBuilder.headers[SIPHeader.FROM] = Factories.headerFactory.createFromHeader(
+                Factories.addressFactory.createAddress(
+                    Factories.addressFactory.createSipURI(
+                        sipClient.sipId,
+                        LOCALHOST
+                    )
+                ), fromTag
+            )
+        } else {
+            val fromSipURI = Factories.addressFactory.createSipURI(sipClient.sipId, sipClient.serverHost)
+            fromSipURI.transportParam = TRANSPORT
+            byeSipRequestBuilder.headers[SIPHeader.FROM] = Factories.headerFactory.createFromHeader(
+                Factories.addressFactory.createAddress(fromSipURI), fromTag
+            )
+        }
 
         byeSipRequestBuilder.headers[SIPHeader.CSEQ] = Factories.headerFactory.createCSeqHeader(3L, SIPRequest.BYE)
         byeSipRequestBuilder.headers[SIPHeader.MAX_FORWARDS] =
