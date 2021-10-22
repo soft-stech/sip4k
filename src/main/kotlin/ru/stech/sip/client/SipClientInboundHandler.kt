@@ -1,6 +1,5 @@
 package ru.stech.sip.client
 
-import com.sun.org.slf4j.internal.LoggerFactory
 import gov.nist.javax.sip.address.AddressImpl
 import gov.nist.javax.sip.header.From
 import gov.nist.javax.sip.message.SIPRequest
@@ -11,6 +10,7 @@ import io.netty.channel.socket.DatagramPacket
 import kotlinx.coroutines.CoroutineScope
 import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
+import org.slf4j.LoggerFactory
 import ru.stech.sip.Factories
 import ru.stech.sip.cache.SipConnectionCache
 import javax.sip.SipException
