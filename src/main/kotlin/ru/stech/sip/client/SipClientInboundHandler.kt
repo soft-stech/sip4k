@@ -1,5 +1,6 @@
 package ru.stech.sip.client
 
+import com.sun.org.slf4j.internal.LoggerFactory
 import gov.nist.javax.sip.address.AddressImpl
 import gov.nist.javax.sip.header.From
 import gov.nist.javax.sip.message.SIPRequest
@@ -22,6 +23,8 @@ class SipClientInboundHandler(
         private const val UNKNOWN_SIP_METHOD = "Unknown sip method name"
     }
 
+    private val log = LoggerFactory.getLogger(SipClientInboundHandler::class.java)
+
     override fun channelRead(ctx: ChannelHandlerContext, msg: Any) {
         CoroutineScope(Dispatchers.Default).launch {
             val inBuffer = msg as DatagramPacket
@@ -30,6 +33,7 @@ class SipClientInboundHandler(
                 val bytes = ByteArray(buf.readableBytes())
                 buf.readBytes(bytes)
                 val body = String(bytes)
+                log.trace("SIP body=${body}")
                 if (isResponse(body)) {
                     processResponse(Factories.messageFactory.createResponse(body) as SIPResponse)
                 } else {
