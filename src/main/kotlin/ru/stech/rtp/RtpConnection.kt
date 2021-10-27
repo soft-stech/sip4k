@@ -11,15 +11,15 @@ import ru.stech.util.randomString
 import ru.stech.util.rtpNioEventLoop
 import kotlin.random.Random
 
-private const val payloadPcma: Byte = 8;
+private const val payloadPcma: Byte = 8
 
 class RtpConnection(
     val to: String,
     val rtpLocalPort: Int,
     val rtpSessionId: String = randomString(10, 57),
     private val rtpPortsCache: RtpPortsCache,
-    private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit 
-) { 
+    private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit
+) {
     private lateinit var future: ChannelFuture
     private lateinit var remoteHost: String
     private var remotePort: Int? = null

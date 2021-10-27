@@ -8,7 +8,7 @@ import java.util.*
 const val LIBNAME = "Sip4k"
 const val TRANSPORT = "udp"
 const val MAX_FORWARDS = 70
-const val EXPIRES = 30
+const val EXPIRES = 60
 const val LOCALHOST = "127.0.0.1"
 const val TIMEOUT_MESSAGE = "Sip timeout exception"
 val sipNioEventLoop = NioEventLoopGroup(1)
