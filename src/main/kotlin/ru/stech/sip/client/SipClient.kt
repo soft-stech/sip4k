@@ -171,10 +171,12 @@ class SipClient(
                     } ?: throw SipException(TIMEOUT_MESSAGE)
                 }
                 if (registerResponse.statusLine.statusCode == 200) {
-                    registered = true
-                    sipClientIsStarted.send(Unit)
+                    if (!registered) {
+                        registered = true
+                        sipClientIsStarted.send(Unit)
+                    }
                 } else {
-                   throw SipException(ERROR_IN_REGISTER_RESPONSE)
+                    throw SipException(ERROR_IN_REGISTER_RESPONSE)
                 }
                 delay(REGISTER_DELAY * 1000L)
             } while (registered)
@@ -261,7 +263,7 @@ class SipClient(
         registerResponseChannel.send(response)
     }
 
-    suspend fun initIncomingCallConnection(to: String) : SipConnection{
+    suspend fun initIncomingCallConnection(to: String): SipConnection {
         val sipConnection = SipConnection(
             to = to,
             sipClient = this,
@@ -291,5 +293,9 @@ class SipClient(
 
     suspend fun stopCall(to: String) {
         connectionCache["${to}@${serverHost}"].stopCall()
+    }
+
+    fun isUserActive(to: String): Boolean {
+        return connectionCache.isExist("${to}@${serverHost}")
     }
 }

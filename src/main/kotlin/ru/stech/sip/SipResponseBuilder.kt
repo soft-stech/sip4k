@@ -13,7 +13,7 @@ class SipResponseBuilder(
     val request: SIPRequest,
     val sipId: String,
     val sipListenPort: Int,
-    val fromTag : String,
+    val fromTag: String,
     val messageBody: String
 ) {
     override fun toString(): String {
@@ -27,7 +27,10 @@ class SipResponseBuilder(
             request.viaHeaders.first()
         headers[SIPHeader.CONTACT] = Factories.headerFactory.createContactHeader(
             Factories.addressFactory.createAddress(
-                Factories.addressFactory.createSipURI(sipId, "${(request.requestLine.uri as SipUri).host}:${sipListenPort}")
+                Factories.addressFactory.createSipURI(
+                    sipId,
+                    "${(request.requestLine.uri as SipUri).host}:${sipListenPort}"
+                )
             )
         )
         request.toHeader.tag = fromTag
@@ -41,7 +44,8 @@ class SipResponseBuilder(
         headers[SIPHeader.CONTENT_TYPE] = Factories.headerFactory.createContentTypeHeader("application", "sdp")
         headers[SIPHeader.USER_AGENT] = Factories.headerFactory.createUserAgentHeader(listOf(LIBNAME))
 
-        headers[SIPHeader.CONTENT_LENGTH] = Factories.headerFactory.createContentLengthHeader(messageBody.toByteArray().size)
+        headers[SIPHeader.CONTENT_LENGTH] =
+            Factories.headerFactory.createContentLengthHeader(messageBody.toByteArray().size)
         val builder = StringBuilder()
         builder.append(requestLine.toString())
         for ((_, value) in headers) {

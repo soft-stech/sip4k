@@ -4,6 +4,7 @@ import java.util.*
 
 class RtpPacket {
     var rawData: ByteArray
+
     constructor() : this(ByteArray(172))
     constructor(rawData: ByteArray) {
         this.rawData = rawData

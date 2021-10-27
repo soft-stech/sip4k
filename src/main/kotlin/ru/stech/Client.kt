@@ -5,7 +5,7 @@ import ru.stech.sip.client.SipClient
 
 class Client(
     private val sipProperties: SipProperties,
-    private var incomingCallEvent:  (user: String) -> Unit,
+    private val incomingCallEvent: (user: String) -> Unit,
     private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
     private val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
     private val portsRange: Pair<Int, Int> = Pair(40000, 65000)
@@ -41,5 +41,9 @@ class Client(
 
     suspend fun stopCall(to: String) {
         sipClient.stopCall(to)
+    }
+
+    fun isUserActive(to: String): Boolean {
+        return sipClient.isUserActive(to)
     }
 }
