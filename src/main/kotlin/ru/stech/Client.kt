@@ -24,7 +24,7 @@ class Client(
     )
 
     suspend fun sendAudioData(to: String, data: ByteArray) {
-        sipClient.sendAudioData(to, compressToG711(data, true))
+        if (isUserActive(to)) sipClient.sendAudioData(to, compressToG711(data, true))
     }
 
     suspend fun start() {
@@ -40,7 +40,7 @@ class Client(
     }
 
     suspend fun stopCall(to: String) {
-        sipClient.stopCall(to)
+        if (isUserActive(to)) sipClient.stopCall(to)
     }
 
     fun isUserActive(to: String): Boolean {
