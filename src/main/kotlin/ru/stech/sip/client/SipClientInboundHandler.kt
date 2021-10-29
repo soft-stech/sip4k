@@ -33,7 +33,7 @@ class SipClientInboundHandler(
                 val bytes = ByteArray(buf.readableBytes())
                 buf.readBytes(bytes)
                 val body = String(bytes)
-                log.trace("SIP body=${body}")
+                if (log.isTraceEnabled) log.trace("SIP body=${body}")
                 if (isResponse(body)) {
                     processResponse(Factories.messageFactory.createResponse(body) as SIPResponse)
                 } else {
