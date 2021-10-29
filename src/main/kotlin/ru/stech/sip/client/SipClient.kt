@@ -61,7 +61,7 @@ class SipClient(
     private val rtpPortsCache = RtpPortsCache(portsRange)
     private val registerResponseChannel: Channel<SIPResponse> = Channel(0)
 
-    private val log = LoggerFactory.getLogger(SipClientInboundHandler::class.java)
+    private val log = LoggerFactory.getLogger(SipClient::class.java)
 
     suspend fun start() {
         //create netty channel
