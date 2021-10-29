@@ -18,6 +18,7 @@ import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.delay
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.withTimeoutOrNull
+import org.slf4j.LoggerFactory
 import ru.stech.rtp.RtpPortsCache
 import ru.stech.sip.Factories
 import ru.stech.sip.SipRequestBuilder
@@ -59,6 +60,8 @@ class SipClient(
     private val connectionCache = SipConnectionCacheImpl()
     private val rtpPortsCache = RtpPortsCache(portsRange)
     private val registerResponseChannel: Channel<SIPResponse> = Channel(0)
+
+    private val log = LoggerFactory.getLogger(SipClientInboundHandler::class.java)
 
     suspend fun start() {
         //create netty channel
@@ -240,6 +243,7 @@ class SipClient(
     }
 
     fun send(data: ByteArray) {
+        if (log.isTraceEnabled) log.trace("SIP body=${String(data)}")
         senderChannel.writeAndFlush(
             DatagramPacket(
                 Unpooled.copiedBuffer(data),
