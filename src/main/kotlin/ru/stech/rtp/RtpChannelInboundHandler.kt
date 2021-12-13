@@ -13,7 +13,7 @@ class RtpChannelInboundHandler(
     val to: String,
     val rtpLocalPort: Int,
     private val rtpPortsCache: RtpPortsCache,
-    private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit
+    private val rtpStreamEvent: suspend (user: String, data: ByteArray) -> Unit
 ) : ChannelInboundHandlerAdapter() {
     companion object {
         private const val RTP_CHANNEL_CAPACITY = 3000

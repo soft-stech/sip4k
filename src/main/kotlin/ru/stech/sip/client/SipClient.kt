@@ -42,7 +42,7 @@ class SipClient(
     val sipListenPort: Int,
     val sipId: String,
     val password: String,
-    val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
+    val rtpStreamEvent: suspend (user: String, data: ByteArray) -> Unit,
     val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit,
     private val portsRange: Pair<Int, Int>,
     val incomingCallEvent: (user: String) -> Unit,

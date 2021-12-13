@@ -18,7 +18,7 @@ class RtpConnection(
     val rtpLocalPort: Int,
     val rtpSessionId: String = randomString(10, 57),
     private val rtpPortsCache: RtpPortsCache,
-    private val rtpStreamEvent: (user: String, data: ByteArray) -> Unit
+    private val rtpStreamEvent: suspend (user: String, data: ByteArray) -> Unit
 ) {
     private lateinit var future: ChannelFuture
     private lateinit var remoteHost: String

@@ -36,7 +36,7 @@ class SipConnection(
     private val sipConnectionCache: SipConnectionCache,
     private val rtpPortsCache: RtpPortsCache,
     private val sipTimeoutMillis: Long,
-    val rtpStreamEvent: (user: String, data: ByteArray) -> Unit,
+    val rtpStreamEvent: suspend (user: String, data: ByteArray) -> Unit,
     val rtpDisconnectEvent: (user: String, byAbonent: Boolean) -> Unit
 ) {
     companion object {
