@@ -33,6 +33,7 @@ import ru.stech.util.TRANSPORT
 import ru.stech.util.getResponseHash
 import ru.stech.util.randomString
 import ru.stech.util.sipNioEventLoop
+import java.time.LocalDateTime
 import java.util.*
 import io.netty.channel.Channel as NettyChannel
 
@@ -88,6 +89,7 @@ class SipClient(
             val cnonce = UUID.randomUUID().toString()
             var registerSipRequestBuilder: SipRequestBuilder
             do {
+                println("try to register ${LocalDateTime.now()}")
                 registerSipRequestBuilder = SipRequestBuilder(
                     RequestLine(
                         GenericURI("sip:${serverPort};transport=$TRANSPORT"),
@@ -138,8 +140,10 @@ class SipClient(
                 var registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
                     registerResponseChannel.receive()
                 }
-                    //?: throw SipException(TIMEOUT_MESSAGE)
 
+                println("registerResponse ${registerResponse} ${LocalDateTime.now()}")
+                    //?: throw SipException(TIMEOUT_MESSAGE)
+                println("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
                 if (registerResponse!!.statusLine.statusCode == 401) {
                     val registerWWWAuthenticateResponse =
                         registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
@@ -184,6 +188,7 @@ class SipClient(
                 //}
                 delay(REGISTER_DELAY * 1000L)
             } while (registered)
+            println("registered ${registered} ${LocalDateTime.now()}")
             //unregister bot client
             val expiresContactHeader = Factories.headerFactory.createContactHeader(
                 Factories.addressFactory.createAddress(
