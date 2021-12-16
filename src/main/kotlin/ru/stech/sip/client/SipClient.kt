@@ -50,7 +50,7 @@ class SipClient(
     private val sipTimeoutMillis: Long
 ) {
     companion object {
-        private const val REGISTER_DELAY = 20L
+        private const val REGISTER_DELAY = 10L
         private const val ERROR_IN_UNREGISTER_RESPONSE = "Error in unregister response"
         private const val ERROR_IN_REGISTER_RESPONSE = "Error in register response"
     }
@@ -142,48 +142,53 @@ class SipClient(
                 }
 
                 println("registerResponse ${registerResponse} ${LocalDateTime.now()}")
+                if(registerResponse != null){
                     //?: throw SipException(TIMEOUT_MESSAGE)
-                println("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
-                if (registerResponse!!.statusLine.statusCode == 401) {
-                    val registerWWWAuthenticateResponse =
-                        registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
-                    registerSipRequestBuilder.headers[SIPHeader.CSEQ] =
-                        Factories.headerFactory.createCSeqHeader(cSeq++, "REGISTER")
-                    val authenticationHeader = Factories.headerFactory.createAuthorizationHeader("Digest")
-                    authenticationHeader.username = sipId
-                    authenticationHeader.realm = registerWWWAuthenticateResponse.realm
-                    authenticationHeader.nonce = registerWWWAuthenticateResponse.nonce
-                    authenticationHeader.uri = Factories.addressFactory.createURI("sip:${serverHost};transport=udp")
-                    authenticationHeader.response = getResponseHash(
-                        user = sipId,
-                        realm = registerWWWAuthenticateResponse.realm,
-                        password = password,
-                        method = SIPRequest.REGISTER,
-                        serverIp = serverHost,
-                        nonce = registerWWWAuthenticateResponse.nonce,
-                        nc = "00000001",
-                        cnonce = cnonce,
-                        qop = registerWWWAuthenticateResponse.qop
-                    )
-                    authenticationHeader.cNonce = cnonce
-                    authenticationHeader.nonceCount = 1
-                    authenticationHeader.qop = registerWWWAuthenticateResponse.qop
-                    if (registerWWWAuthenticateResponse.algorithm != null)
-                        authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
-                    if (registerWWWAuthenticateResponse.opaque != null)
-                        authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
-                    registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
-                    send(registerSipRequestBuilder.toString().toByteArray())
-                    registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
-                        registerResponseChannel.receive()
-                    } //?: throw SipException(TIMEOUT_MESSAGE)
-                }
-                if (registerResponse!!.statusLine.statusCode == 200) {
-                    if (!registered) {
-                        registered = true
-                        sipClientIsStarted.send(Unit)
+                    println("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
+                    if (registerResponse!!.statusLine.statusCode == 401) {
+                        val registerWWWAuthenticateResponse =
+                            registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
+                        registerSipRequestBuilder.headers[SIPHeader.CSEQ] =
+                            Factories.headerFactory.createCSeqHeader(cSeq++, "REGISTER")
+                        val authenticationHeader = Factories.headerFactory.createAuthorizationHeader("Digest")
+                        authenticationHeader.username = sipId
+                        authenticationHeader.realm = registerWWWAuthenticateResponse.realm
+                        authenticationHeader.nonce = registerWWWAuthenticateResponse.nonce
+                        authenticationHeader.uri = Factories.addressFactory.createURI("sip:${serverHost};transport=udp")
+                        authenticationHeader.response = getResponseHash(
+                            user = sipId,
+                            realm = registerWWWAuthenticateResponse.realm,
+                            password = password,
+                            method = SIPRequest.REGISTER,
+                            serverIp = serverHost,
+                            nonce = registerWWWAuthenticateResponse.nonce,
+                            nc = "00000001",
+                            cnonce = cnonce,
+                            qop = registerWWWAuthenticateResponse.qop
+                        )
+                        authenticationHeader.cNonce = cnonce
+                        authenticationHeader.nonceCount = 1
+                        authenticationHeader.qop = registerWWWAuthenticateResponse.qop
+                        if (registerWWWAuthenticateResponse.algorithm != null)
+                            authenticationHeader.algorithm = registerWWWAuthenticateResponse.algorithm
+                        if (registerWWWAuthenticateResponse.opaque != null)
+                            authenticationHeader.opaque = registerWWWAuthenticateResponse.opaque
+                        registerSipRequestBuilder.headers[SIPHeader.AUTHORIZATION] = authenticationHeader
+                        send(registerSipRequestBuilder.toString().toByteArray())
+                        registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
+                            registerResponseChannel.receive()
+                        } //?: throw SipException(TIMEOUT_MESSAGE)
                     }
-                }// else {
+                    if (registerResponse!!.statusLine.statusCode == 200) {
+                        if (!registered) {
+                            registered = true
+                            sipClientIsStarted.send(Unit)
+                        }
+                    }// else {
+                }else{
+                    println("not registred ${LocalDateTime.now()}")
+                }
+
                  //   throw SipException(ERROR_IN_REGISTER_RESPONSE)
                 //}
                 delay(REGISTER_DELAY * 1000L)
