@@ -137,9 +137,10 @@ class SipClient(
                 send(registerSipRequestBuilder.toString().toByteArray())
                 var registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
                     registerResponseChannel.receive()
-                } ?: throw SipException(TIMEOUT_MESSAGE)
+                }
+                    //?: throw SipException(TIMEOUT_MESSAGE)
 
-                if (registerResponse.statusLine.statusCode == 401) {
+                if (registerResponse!!.statusLine.statusCode == 401) {
                     val registerWWWAuthenticateResponse =
                         registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
                     registerSipRequestBuilder.headers[SIPHeader.CSEQ] =
@@ -171,16 +172,16 @@ class SipClient(
                     send(registerSipRequestBuilder.toString().toByteArray())
                     registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
                         registerResponseChannel.receive()
-                    } ?: throw SipException(TIMEOUT_MESSAGE)
+                    } //?: throw SipException(TIMEOUT_MESSAGE)
                 }
-                if (registerResponse.statusLine.statusCode == 200) {
+                if (registerResponse!!.statusLine.statusCode == 200) {
                     if (!registered) {
                         registered = true
                         sipClientIsStarted.send(Unit)
                     }
-                } else {
-                    throw SipException(ERROR_IN_REGISTER_RESPONSE)
-                }
+                }// else {
+                 //   throw SipException(ERROR_IN_REGISTER_RESPONSE)
+                //}
                 delay(REGISTER_DELAY * 1000L)
             } while (registered)
             //unregister bot client
