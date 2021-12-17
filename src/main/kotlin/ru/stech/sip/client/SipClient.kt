@@ -55,7 +55,7 @@ class SipClient(
         private const val ERROR_IN_REGISTER_RESPONSE = "Error in register response"
     }
 
-    private var registered = false
+    private var isWorking = true
     private val sipClientIsStarted = Channel<Unit>(1)
     private lateinit var senderChannel: NettyChannel
     private val connectionCache = SipConnectionCacheImpl()
@@ -88,6 +88,7 @@ class SipClient(
             val registerCallId = UUID.randomUUID().toString()
             val cnonce = UUID.randomUUID().toString()
             var registerSipRequestBuilder: SipRequestBuilder
+            var registred: Boolean = false
             do {
                 println("try to register ${LocalDateTime.now()}")
                 registerSipRequestBuilder = SipRequestBuilder(
@@ -143,7 +144,6 @@ class SipClient(
 
                 println("registerResponse ${registerResponse} ${LocalDateTime.now()}")
                 if(registerResponse != null){
-                    //?: throw SipException(TIMEOUT_MESSAGE)
                     println("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
                     if (registerResponse!!.statusLine.statusCode == 401) {
                         val registerWWWAuthenticateResponse =
@@ -177,23 +177,19 @@ class SipClient(
                         send(registerSipRequestBuilder.toString().toByteArray())
                         registerResponse = withTimeoutOrNull(sipTimeoutMillis) {
                             registerResponseChannel.receive()
-                        } //?: throw SipException(TIMEOUT_MESSAGE)
+                        }
                     }
                     if (registerResponse!!.statusLine.statusCode == 200) {
-                        if (!registered) {
-                            registered = true
+                        if (!registred) {
+                            registred = true
                             sipClientIsStarted.send(Unit)
                         }
-                    }// else {
-                }else{
+                    }
+                }else
                     println("not registred ${LocalDateTime.now()}")
-                }
-
-                 //   throw SipException(ERROR_IN_REGISTER_RESPONSE)
-                //}
                 delay(REGISTER_DELAY * 1000L)
-            } while (registered)
-            println("registered ${registered} ${LocalDateTime.now()}")
+            } while (isWorking)
+            println("registered ${isWorking} ${LocalDateTime.now()}")
             //unregister bot client
             val expiresContactHeader = Factories.headerFactory.createContactHeader(
                 Factories.addressFactory.createAddress(
@@ -250,7 +246,7 @@ class SipClient(
     }
 
     fun stop() {
-        registered = false
+        isWorking = false
     }
 
     fun send(data: ByteArray) {
