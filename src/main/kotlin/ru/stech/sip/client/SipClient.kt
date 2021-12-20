@@ -90,7 +90,7 @@ class SipClient(
             var registerSipRequestBuilder: SipRequestBuilder
             var registred: Boolean = false
             do {
-                println("try to register ${LocalDateTime.now()}")
+                log.trace("try to register ${LocalDateTime.now()}")
                 registerSipRequestBuilder = SipRequestBuilder(
                     RequestLine(
                         GenericURI("sip:${serverPort};transport=$TRANSPORT"),
@@ -142,9 +142,9 @@ class SipClient(
                     registerResponseChannel.receive()
                 }
 
-                println("registerResponse ${registerResponse} ${LocalDateTime.now()}")
+                log.trace("registerResponse ${registerResponse} ${LocalDateTime.now()}")
                 if(registerResponse != null){
-                    println("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
+                    log.trace("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
                     if (registerResponse!!.statusLine.statusCode == 401) {
                         val registerWWWAuthenticateResponse =
                             registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
@@ -179,17 +179,23 @@ class SipClient(
                             registerResponseChannel.receive()
                         }
                     }
-                    if (registerResponse!!.statusLine.statusCode == 200) {
+                    if (registerResponse!!.statusLine!!.statusCode == 200) {
+                        log.trace("get register response: ${registerResponse!!.statusLine.statusCode}")
                         if (!registred) {
+                            log.trace("registred changed to true")
                             registred = true
                             sipClientIsStarted.send(Unit)
+                        }else{
+                            log.trace("updated registration")
                         }
+                    }else{
+                        log.trace("not expected registerResponse statusCode - ${registerResponse!!.statusLine!!.statusCode}")
                     }
                 }else
-                    println("not registred ${LocalDateTime.now()}")
+                    log.trace("not registered: ${LocalDateTime.now()}")
                 delay(REGISTER_DELAY * 1000L)
             } while (isWorking)
-            println("registered ${isWorking} ${LocalDateTime.now()}")
+            log.trace("registered ${isWorking} ${LocalDateTime.now()}")
             //unregister bot client
             val expiresContactHeader = Factories.headerFactory.createContactHeader(
                 Factories.addressFactory.createAddress(
@@ -275,6 +281,7 @@ class SipClient(
     }
 
     suspend fun initIncomingCallConnection(to: String): SipConnection {
+        log.trace("init incoming call connection to: ${to}")
         val sipConnection = SipConnection(
             to = to,
             sipClient = this,
@@ -289,6 +296,7 @@ class SipClient(
     }
 
     suspend fun startCall(to: String) {
+        log.trace("starting call to: ${to}")
         val sipConnection = SipConnection(
             to = to,
             sipClient = this,
@@ -303,10 +311,12 @@ class SipClient(
     }
 
     suspend fun stopCall(to: String) {
+        log.trace("stop call to: ${to}")
         connectionCache["${to}@${serverHost}"].stopCall()
     }
 
     fun isUserActive(to: String): Boolean {
+        log.trace("checking user is active: ${to}")
         return connectionCache.isExist("${to}@${serverHost}")
     }
 }
