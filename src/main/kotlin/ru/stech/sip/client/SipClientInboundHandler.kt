@@ -55,6 +55,7 @@ class SipClientInboundHandler(
         val sipId = (request.fromHeader.address as AddressImpl).userAtHostPort
         when (request.requestLine.method) {
             SIPRequest.OPTIONS -> {
+
                 if (log.isTraceEnabled) log.trace("processing OPTIONS request")
                 sipClient.optionsRequestEvent(request)
             }
@@ -78,6 +79,7 @@ class SipClientInboundHandler(
                     sipConnection.incomingCallRequestEvent(request)
                     sipClient.incomingCallEvent(fromSipId)
                 } else {
+
                     if (log.isTraceEnabled) log.trace("processing INVITE request session doesn't exist")
                     val sipConnection = sipConnectionCache[sipId]
                     sipConnection.inviteRequestEvent(request)
@@ -86,7 +88,6 @@ class SipClientInboundHandler(
             SIPRequest.ACK -> {
                 if (!sipConnectionCache.isExist(sipId)) {
                     if (log.isTraceEnabled) log.trace("processing ACK request session exist")
-
                     val sipConnection = sipConnectionCache[sipId]
                     sipConnection.ackRequestEvent(request)
                 } else {
@@ -109,6 +110,7 @@ class SipClientInboundHandler(
         val sipId = (response.toHeader.address as AddressImpl).userAtHostPort
         when (response.cSeqHeader.method) {
             SIPRequest.REGISTER -> {
+
                 if (log.isTraceEnabled) log.trace("processing REGISTER response")
                 sipClient.registerResponseEvent(response)
             }

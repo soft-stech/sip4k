@@ -33,6 +33,7 @@ class SipConnectionCacheImpl : SipConnectionCache {
 
     override fun remove(key: String): SipConnection {
         if(log.isTraceEnabled) log.trace("remove SipConnectionCache ${key}")
+        log.trace("remove SipConnectionCache ${key}")
         return connections.remove(key) ?: throw SipException(CONNECTION_NOT_FOUND)
     }
 

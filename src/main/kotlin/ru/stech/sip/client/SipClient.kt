@@ -312,6 +312,7 @@ class SipClient(
 
     suspend fun stopCall(to: String) {
         if(log.isTraceEnabled) log.trace("stop call to: ${to}")
+
         connectionCache["${to}@${serverHost}"].stopCall()
     }
 
