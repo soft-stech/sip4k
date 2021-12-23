@@ -55,51 +55,52 @@ class SipClientInboundHandler(
         val sipId = (request.fromHeader.address as AddressImpl).userAtHostPort
         when (request.requestLine.method) {
             SIPRequest.OPTIONS -> {
-                log.trace("processing OPTIONS request")
+
+                if (log.isTraceEnabled) log.trace("processing OPTIONS request")
                 sipClient.optionsRequestEvent(request)
             }
             SIPRequest.BYE -> {
-                log.trace("processing BYE request")
+                if (log.isTraceEnabled) log.trace("processing BYE request")
                 if (sipConnectionCache.isExist(sipId)) {
-                    log.trace("processing BYE request session exist")
+                    if (log.isTraceEnabled) log.trace("processing BYE request session exist")
                     val sipConnection = sipConnectionCache[sipId]
                     sipConnection.byeRequestEvent(request)
                 } else {
-                    log.trace("processing BYE request session doesn't exist")
+                    if (log.isTraceEnabled) log.trace("processing BYE request session doesn't exist")
                     sipClient.send(request.createResponse(200).toString().toByteArray())
                 }
             }
             SIPRequest.INVITE -> {
                 if (!sipConnectionCache.isExist(sipId)) {
-                    log.trace("processing INVITE request session exist")
+                    if (log.isTraceEnabled) log.trace("processing INVITE request session exist")
                     val fromSipId = ((request.fromHeader as From).address as AddressImpl).displayName!!.toString()
                     val sipConnection = sipClient.initIncomingCallConnection(fromSipId)
 
                     sipConnection.incomingCallRequestEvent(request)
                     sipClient.incomingCallEvent(fromSipId)
                 } else {
-                    log.trace("processing INVITE request session doesn't exist")
+
+                    if (log.isTraceEnabled) log.trace("processing INVITE request session doesn't exist")
                     val sipConnection = sipConnectionCache[sipId]
                     sipConnection.inviteRequestEvent(request)
                 }
             }
             SIPRequest.ACK -> {
                 if (!sipConnectionCache.isExist(sipId)) {
-                    log.trace("processing ACK request session exist")
-
+                    if (log.isTraceEnabled) log.trace("processing ACK request session exist")
                     val sipConnection = sipConnectionCache[sipId]
                     sipConnection.ackRequestEvent(request)
                 } else {
-                    log.trace("processing ACK request session exist")
+                    if (log.isTraceEnabled) log.trace("processing ACK request session exist")
                     sipClient.send(request.createResponse(200).toString().toByteArray())
                 }
             }
             SIPRequest.CANCEL -> {
-                log.trace("processing CANCEL request")
+                if (log.isTraceEnabled) log.trace("processing CANCEL request")
                 sipClient.send(request.createResponse(200).toString().toByteArray())
             }
             else -> {
-                log.trace("processing request ERROR UNKNOWN_SIP_METHOD ${request.requestLine.method}")
+                if (log.isTraceEnabled) log.trace("processing request ERROR UNKNOWN_SIP_METHOD ${request.requestLine.method}")
                 throw SipException(UNKNOWN_SIP_METHOD)
             }
         }
@@ -109,21 +110,22 @@ class SipClientInboundHandler(
         val sipId = (response.toHeader.address as AddressImpl).userAtHostPort
         when (response.cSeqHeader.method) {
             SIPRequest.REGISTER -> {
-                log.trace("processing REGISTER response")
+
+                if (log.isTraceEnabled) log.trace("processing REGISTER response")
                 sipClient.registerResponseEvent(response)
             }
             SIPRequest.INVITE -> {
-                log.trace("processing INVITE response")
+                if (log.isTraceEnabled) log.trace("processing INVITE response")
                 val sipConnection = sipConnectionCache[sipId]
                 sipConnection.inviteResponseEvent(response)
             }
             SIPRequest.BYE -> {
-                log.trace("processing BYE response")
+                if (log.isTraceEnabled) log.trace("processing BYE response")
                 val sipConnection = sipConnectionCache[sipId]
                 sipConnection.byeResponseEvent(response)
             }
             else -> {
-                log.trace("processing response ERROR UNKNOWN_SIP_METHOD ${response.cSeqHeader.method}")
+                if (log.isTraceEnabled) log.trace("processing response ERROR UNKNOWN_SIP_METHOD ${response.cSeqHeader.method}")
                 throw SipException(UNKNOWN_SIP_METHOD)
             }
         }

@@ -90,7 +90,7 @@ class SipClient(
             var registerSipRequestBuilder: SipRequestBuilder
             var registred: Boolean = false
             do {
-                log.trace("try to register ${LocalDateTime.now()}")
+                if(log.isTraceEnabled)  log.trace("try to register ${LocalDateTime.now()}")
                 registerSipRequestBuilder = SipRequestBuilder(
                     RequestLine(
                         GenericURI("sip:${serverPort};transport=$TRANSPORT"),
@@ -142,9 +142,9 @@ class SipClient(
                     registerResponseChannel.receive()
                 }
 
-                log.trace("registerResponse ${registerResponse} ${LocalDateTime.now()}")
+                if(log.isTraceEnabled) log.trace("registerResponse ${registerResponse} ${LocalDateTime.now()}")
                 if(registerResponse != null){
-                    log.trace("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
+                    if(log.isTraceEnabled)  log.trace("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
                     if (registerResponse!!.statusLine.statusCode == 401) {
                         val registerWWWAuthenticateResponse =
                             registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
@@ -180,22 +180,22 @@ class SipClient(
                         }
                     }
                     if (registerResponse!!.statusLine!!.statusCode == 200) {
-                        log.trace("get register response: ${registerResponse!!.statusLine.statusCode}")
+                        if(log.isTraceEnabled) log.trace("get register response: ${registerResponse!!.statusLine.statusCode}")
                         if (!registred) {
-                            log.trace("registred changed to true")
+                            if(log.isTraceEnabled) log.trace("registred changed to true")
                             registred = true
                             sipClientIsStarted.send(Unit)
                         }else{
-                            log.trace("updated registration")
+                            if(log.isTraceEnabled) log.trace("updated registration")
                         }
                     }else{
-                        log.trace("not expected registerResponse statusCode - ${registerResponse!!.statusLine!!.statusCode}")
+                        if(log.isTraceEnabled) log.trace("not expected registerResponse statusCode - ${registerResponse!!.statusLine!!.statusCode}")
                     }
                 }else
-                    log.trace("not registered: ${LocalDateTime.now()}")
+                    if(log.isTraceEnabled) log.trace("not registered: ${LocalDateTime.now()}")
                 delay(REGISTER_DELAY * 1000L)
             } while (isWorking)
-            log.trace("registered ${isWorking} ${LocalDateTime.now()}")
+            if(log.isTraceEnabled) log.trace("registered ${isWorking} ${LocalDateTime.now()}")
             //unregister bot client
             val expiresContactHeader = Factories.headerFactory.createContactHeader(
                 Factories.addressFactory.createAddress(
@@ -281,7 +281,7 @@ class SipClient(
     }
 
     suspend fun initIncomingCallConnection(to: String): SipConnection {
-        log.trace("init incoming call connection to: ${to}")
+        if(log.isTraceEnabled) log.trace("init incoming call connection to: ${to}")
         val sipConnection = SipConnection(
             to = to,
             sipClient = this,
@@ -296,7 +296,7 @@ class SipClient(
     }
 
     suspend fun startCall(to: String) {
-        log.trace("starting call to: ${to}")
+        if(log.isTraceEnabled) log.trace("starting call to: ${to}")
         val sipConnection = SipConnection(
             to = to,
             sipClient = this,
@@ -311,12 +311,13 @@ class SipClient(
     }
 
     suspend fun stopCall(to: String) {
-        log.trace("stop call to: ${to}")
+        if(log.isTraceEnabled) log.trace("stop call to: ${to}")
+
         connectionCache["${to}@${serverHost}"].stopCall()
     }
 
     fun isUserActive(to: String): Boolean {
-        log.trace("checking user is active: ${to}")
+        if(log.isTraceEnabled) log.trace("checking user is active: ${to}")
         return connectionCache.isExist("${to}@${serverHost}")
     }
 }
