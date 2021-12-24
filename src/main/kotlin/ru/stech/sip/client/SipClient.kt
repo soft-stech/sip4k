@@ -142,9 +142,9 @@ class SipClient(
                     registerResponseChannel.receive()
                 }
 
-                if(log.isTraceEnabled) log.trace("registerResponse ${registerResponse} ${LocalDateTime.now()}")
+
                 if(registerResponse != null){
-                    if(log.isTraceEnabled)  log.trace("registerResponse!!.statusLine.statusCode ${registerResponse!!.statusLine.statusCode} ${LocalDateTime.now()}")
+                    if(log.isTraceEnabled) log.trace("registerResponse ${registerResponse} ${LocalDateTime.now()}")
                     if (registerResponse!!.statusLine.statusCode == 401) {
                         val registerWWWAuthenticateResponse =
                             registerResponse.getHeader("WWW-Authenticate") as WWWAuthenticate
@@ -179,18 +179,22 @@ class SipClient(
                             registerResponseChannel.receive()
                         }
                     }
-                    if (registerResponse!!.statusLine!!.statusCode == 200) {
-                        if(log.isTraceEnabled) log.trace("get register response: ${registerResponse!!.statusLine.statusCode}")
-                        if (!registred) {
-                            if(log.isTraceEnabled) log.trace("registred changed to true")
-                            registred = true
-                            sipClientIsStarted.send(Unit)
+
+                    if(registerResponse != null){
+                        if (registerResponse!!.statusLine!!.statusCode == 200) {
+                            if(log.isTraceEnabled) log.trace("get register response: ${registerResponse!!.statusLine.statusCode}")
+                            if (!registred) {
+                                if(log.isTraceEnabled) log.trace("registred changed to true")
+                                registred = true
+                                sipClientIsStarted.send(Unit)
+                            }else{
+                                if(log.isTraceEnabled) log.trace("updated registration")
+                            }
                         }else{
-                            if(log.isTraceEnabled) log.trace("updated registration")
+                            if(log.isTraceEnabled) log.trace("not expected registerResponse statusCode - ${registerResponse!!.statusLine!!.statusCode}")
                         }
-                    }else{
-                        if(log.isTraceEnabled) log.trace("not expected registerResponse statusCode - ${registerResponse!!.statusLine!!.statusCode}")
-                    }
+                    }else
+                        if(log.isTraceEnabled) log.trace("not registered: ${LocalDateTime.now()}")
                 }else
                     if(log.isTraceEnabled) log.trace("not registered: ${LocalDateTime.now()}")
                 delay(REGISTER_DELAY * 1000L)
